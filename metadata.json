@@ -1,8 +1,0 @@
-
-{
-  "name": "Luci Berkembrock Residence - Gestão",
-  "description": "Sistema exclusivo de gestão de consumo de água e gás para o Luci Berkembrock Residence.",
-  "requestFramePermissions": [
-    "camera"
-  ]
-}

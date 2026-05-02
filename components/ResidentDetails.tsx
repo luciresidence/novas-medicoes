@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { db } from '../lib/firebaseConfig';
+import { collection, doc, getDoc, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
 import { storage } from '../data';
 import { Apartment } from '../types';
 
@@ -17,14 +18,13 @@ const ResidentDetails: React.FC = () => {
       const fetchData = async () => {
         setIsLoading(true);
         // Fetch Apartment basic info
-        const { data: aptData } = await supabase
-          .from('apartments')
-          .select('*')
-          .eq('id', id)
-          .single();
+        const aptRef = doc(db, 'apartments', id);
+        const aptSnap = await getDoc(aptRef);
 
-        if (aptData) {
+        if (aptSnap.exists()) {
+          const aptData = aptSnap.data() as any;
           setApartment({
+            id: aptSnap.id,
             ...aptData,
             residentName: aptData.resident_name,
             residentRole: aptData.resident_role,
@@ -33,17 +33,22 @@ const ResidentDetails: React.FC = () => {
         }
 
         // Fetch latest approved registration for this apartment
-        const { data: regData } = await supabase
-          .from('resident_registrations')
-          .select('*')
-          .eq('apartment_id', id)
-          .eq('status', 'APROVADO')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+        const regsSnap = await getDocs(query(
+          collection(db, 'resident_registrations'),
+          where('apartment_id', '==', id)
+        ));
 
-        if (regData) {
-          setRegistration(regData);
+        const approvedRegs = regsSnap.docs
+          .map(doc => ({ id: doc.id, ...(doc.data() as any) }))
+          .filter((reg: any) => reg.status === 'APROVADO')
+          .sort((a: any, b: any) => {
+            const aTime = new Date(a.created_at).getTime() || 0;
+            const bTime = new Date(b.created_at).getTime() || 0;
+            return bTime - aTime;
+          });
+
+        if (approvedRegs.length > 0) {
+          setRegistration(approvedRegs[0]);
         }
         setIsLoading(false);
       };

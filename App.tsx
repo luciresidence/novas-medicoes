@@ -14,45 +14,13 @@ import ImagePreview from './components/ImagePreview';
 import Login from './components/Login';
 import ResidentRegistration from './components/ResidentRegistration';
 import RegistrationManager from './components/RegistrationManager';
-import { supabase } from './lib/supabase';
+import Reports from './components/Reports';
 
 const App: React.FC = () => {
   const [darkMode, setDarkMode] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   const location = useLocation();
   const navigate = useNavigate();
-
-  const publicRoutes = ['/login', '/cadastro'];
-
-  useEffect(() => {
-    // Check initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setIsAuthenticated(!!session);
-      setIsLoading(false);
-    });
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsAuthenticated(!!session);
-      if (session) {
-        if (location.pathname === '/login') {
-          navigate('/dashboard');
-        }
-      } else {
-        const path = location.pathname.endsWith('/') && location.pathname.length > 1
-          ? location.pathname.slice(0, -1)
-          : location.pathname;
-
-        if (!publicRoutes.includes(path)) {
-          navigate('/login');
-        }
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [navigate, location.pathname]);
 
   useEffect(() => {
     if (darkMode) {
@@ -66,38 +34,15 @@ const App: React.FC = () => {
 
   const handleLogout = async () => {
     try {
-      await supabase.auth.signOut();
-    } catch (e) {
-      console.error(e);
-    } finally {
       localStorage.clear();
-      setIsAuthenticated(false);
       navigate('/login');
       window.location.reload();
+    } catch (e) {
+      console.error(e);
     }
   };
 
-  useEffect(() => {
-    if (!isLoading) {
-      const path = location.pathname.endsWith('/') && location.pathname.length > 1
-        ? location.pathname.slice(0, -1)
-        : location.pathname;
-
-      if (!isAuthenticated && !publicRoutes.includes(path)) {
-        navigate('/login');
-      } else if (isAuthenticated && path === '/login') {
-        navigate('/dashboard');
-      }
-    }
-  }, [isAuthenticated, location.pathname, navigate, isLoading]);
-
-  if (isLoading) {
-    return (
-      <div className="h-screen w-full flex items-center justify-center bg-background-light dark:bg-background-dark">
-        <div className="size-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
+  const hideNav = location.pathname === '/login' || location.pathname === '/cadastro';
 
   return (
     <div className="h-[100dvh] w-full bg-background-light dark:bg-background-dark overflow-hidden flex flex-col">
@@ -110,6 +55,7 @@ const App: React.FC = () => {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/readings" element={<ApartmentList />} />
             <Route path="/readings/:id" element={<ReadingForm />} />
+            <Route path="/reports" element={<Reports />} />
             <Route path="/history" element={<History onImageClick={setPreviewImage} />} />
             <Route path="/units" element={<UnitList />} />
             <Route path="/units/new" element={<UnitRegistration />} />
@@ -121,7 +67,7 @@ const App: React.FC = () => {
         </div>
       </div>
 
-      {isAuthenticated && <Navigation />}
+      {!hideNav && <Navigation />}
       {previewImage && <ImagePreview url={previewImage} onClose={() => setPreviewImage(null)} />}
     </div>
   );

@@ -40,8 +40,7 @@ O repositório local já foi inicializado e o primeiro commit foi realizado. Ago
 
 5. **Variáveis de Ambiente (CRÍTICO)**:
    - Expanda a seção **"Environment Variables"**.
-   - Adicione as seguintes chaves com os valores do seu arquivo `.env.local`:
-     - `GEMINI_API_KEY`: Seu valor da API Key do Gemini.
+   - Adicione apenas as chaves necessárias para seu projeto.
 
 6. **Clique em Deploy**:
    - A Vercel iniciará o build e fornecerá uma URL pública (ex: `seu-projeto.vercel.app`).
@@ -59,4 +58,4 @@ O arquivo [vercel.json](file:///c:/Users/PMRV1/Downloads/luci-berkembrock-reside
 ```
 
 > [!IMPORTANT]
-> Lembre-se de adicionar a `GEMINI_API_KEY` nas configurações da Vercel, caso contrário, as funcionalidades de IA não funcionarão em produção.
+> O uso de Gemini foi removido do projeto, então não é necessário configurar `GEMINI_API_KEY` para o deploy.

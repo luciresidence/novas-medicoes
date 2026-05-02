@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { db } from '../lib/firebaseConfig';
+import { collection, getDocs, query, where, orderBy, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 
 interface Registration {
     id: string;
@@ -71,17 +72,28 @@ const RegistrationManager: React.FC = () => {
         try {
             setIsLoading(true);
             setDebugError(null);
-            const { data, error } = await supabase
-                .from('resident_registrations')
-                .select('*, apartments(number, block)')
-                .eq('status', 'PENDENTE')
-                .order('created_at', { ascending: false });
 
-            if (error) {
-                setDebugError(`Erro do Banco: ${error.message} (${error.code})`);
-            } else {
-                setRegistrations(data || []);
-            }
+            const aptsSnap = await getDocs(collection(db, 'apartments'));
+            const aptsData = aptsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const aptMap = new Map(aptsData.map((apt: any) => [apt.id, apt]));
+
+            const regsSnap = await getDocs(query(
+                collection(db, 'resident_registrations'),
+                where('status', '==', 'PENDENTE')
+            ));
+
+            const registrationsData = regsSnap.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data(),
+                apartments: aptMap.get((doc.data() as any).apartment_id) || { number: '??', block: '??' }
+            }))
+            .sort((a: any, b: any) => {
+                const aTime = new Date(a.created_at).getTime() || 0;
+                const bTime = new Date(b.created_at).getTime() || 0;
+                return bTime - aTime;
+            });
+
+            setRegistrations(registrationsData || []);
         } catch (err: any) {
             setDebugError(`Erro de Rede/Execução: ${err.message || 'Falha na conexão'}`);
         } finally {
@@ -90,77 +102,63 @@ const RegistrationManager: React.FC = () => {
     };
 
     const handleUpdateStatus = async (id: string, status: string) => {
-        const { error } = await supabase
-            .from('resident_registrations')
-            .update({ status })
-            .eq('id', id);
+        const regRef = doc(db, 'resident_registrations', id);
+        await updateDoc(regRef, { status });
 
-        if (!error) {
-            fetchRegistrations();
-            setSelectedReg(null);
-            setIsEditing(false);
-        }
+        fetchRegistrations();
+        setSelectedReg(null);
+        setIsEditing(false);
     };
 
     const handleSaveEdits = async () => {
         if (!selectedReg) return;
 
         setIsSaving(true);
-        const { error } = await supabase
-            .from('resident_registrations')
-            .update({
-                full_name: editFullName,
-                cpf: editCpf,
-                birth_date: editBirthDate,
-                phone: editPhone,
-                resident_type: editResidentType,
-                garage_spot: editGarageSpot,
-                is_financial_responsible: editIsFinancialResponsible,
-                financial_responsible_name: editIsFinancialResponsible ? null : editFinancialResponsibleName,
-                financial_responsible_cpf: editIsFinancialResponsible ? null : editFinancialResponsibleCpf.replace(/\D/g, ''),
-                owner_name: editResidentType === 'Inquilino' ? editOwnerName : null,
-                owner_phone: editResidentType === 'Inquilino' ? editOwnerPhone.replace(/\D/g, '') : null,
-                additional_residents: editAdditionalResidents
-            })
-            .eq('id', selectedReg.id);
+        const regRef = doc(db, 'resident_registrations', selectedReg.id);
+        await updateDoc(regRef, {
+            full_name: editFullName,
+            cpf: editCpf,
+            birth_date: editBirthDate,
+            phone: editPhone,
+            resident_type: editResidentType,
+            garage_spot: editGarageSpot,
+            is_financial_responsible: editIsFinancialResponsible,
+            financial_responsible_name: editIsFinancialResponsible ? null : editFinancialResponsibleName,
+            financial_responsible_cpf: editIsFinancialResponsible ? null : editFinancialResponsibleCpf.replace(/\D/g, ''),
+            owner_name: editResidentType === 'Inquilino' ? editOwnerName : null,
+            owner_phone: editResidentType === 'Inquilino' ? editOwnerPhone.replace(/\D/g, '') : null,
+            additional_residents: editAdditionalResidents
+        });
 
-        if (!error) {
-            // Update local state
-            const updatedReg = {
-                ...selectedReg,
-                full_name: editFullName,
-                cpf: editCpf,
-                birth_date: editBirthDate,
-                phone: editPhone,
-                resident_type: editResidentType,
-                garage_spot: editGarageSpot,
-                is_financial_responsible: editIsFinancialResponsible,
-                financial_responsible_name: editIsFinancialResponsible ? null : editFinancialResponsibleName,
-                financial_responsible_cpf: editIsFinancialResponsible ? null : editFinancialResponsibleCpf.replace(/\D/g, ''),
-                owner_name: editResidentType === 'Inquilino' ? editOwnerName : null,
-                owner_phone: editResidentType === 'Inquilino' ? editOwnerPhone.replace(/\D/g, '') : null,
-                additional_residents: editAdditionalResidents
-            } as Registration;
-            setSelectedReg(updatedReg);
-            setIsEditing(false);
-            fetchRegistrations();
-        }
+        const updatedReg = {
+            ...selectedReg,
+            full_name: editFullName,
+            cpf: editCpf,
+            birth_date: editBirthDate,
+            phone: editPhone,
+            resident_type: editResidentType,
+            garage_spot: editGarageSpot,
+            is_financial_responsible: editIsFinancialResponsible,
+            financial_responsible_name: editIsFinancialResponsible ? null : editFinancialResponsibleName,
+            financial_responsible_cpf: editIsFinancialResponsible ? null : editFinancialResponsibleCpf.replace(/\D/g, ''),
+            owner_name: editResidentType === 'Inquilino' ? editOwnerName : null,
+            owner_phone: editResidentType === 'Inquilino' ? editOwnerPhone.replace(/\D/g, '') : null,
+            additional_residents: editAdditionalResidents
+        } as Registration;
+        setSelectedReg(updatedReg);
+        setIsEditing(false);
+        fetchRegistrations();
         setIsSaving(false);
     };
 
     const handleApplyToUnit = async (reg: Registration) => {
-        // Update the core apartments table with the primary resident name
-        const { error } = await supabase
-            .from('apartments')
-            .update({
-                resident_name: reg.full_name,
-                resident_role: reg.resident_type
-            })
-            .eq('id', reg.apartment_id);
+        const aptRef = doc(db, 'apartments', reg.apartment_id);
+        await updateDoc(aptRef, {
+            resident_name: reg.full_name,
+            resident_role: reg.resident_type
+        });
 
-        if (!error) {
-            handleUpdateStatus(reg.id, 'APROVADO');
-        }
+        handleUpdateStatus(reg.id, 'APROVADO');
     };
 
     const handleCloseModal = () => {
@@ -173,16 +171,12 @@ const RegistrationManager: React.FC = () => {
             return;
         }
 
-        const { error } = await supabase
-            .from('resident_registrations')
-            .delete()
-            .eq('id', id);
-
-        if (!error) {
+        try {
+            await deleteDoc(doc(db, 'resident_registrations', id));
             fetchRegistrations();
             setSelectedReg(null);
             setIsEditing(false);
-        } else {
+        } catch (err: any) {
             alert('Erro ao excluir o formulário. Tente novamente.');
         }
     };

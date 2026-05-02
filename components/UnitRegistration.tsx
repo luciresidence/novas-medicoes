@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { db } from '../lib/firebaseConfig';
+import { collection, deleteDoc, doc, getDoc, getDocs, query, where, orderBy, limit, addDoc, updateDoc } from 'firebase/firestore';
 import { Apartment } from '../types';
 
 interface AdditionalResident {
@@ -52,45 +53,53 @@ const UnitRegistration: React.FC = () => {
 
   const fetchData = async () => {
     setIsLoading(true);
-    // 1. Fetch Apartment Data
-    const { data: apt } = await supabase
-      .from('apartments')
-      .select('*')
-      .eq('id', id)
-      .single();
 
-    if (apt) {
-      setNumber(apt.number);
-      setBlock(apt.block);
-      // Default resident info if no registration found
+    if (!id) {
+      setIsLoading(false);
+      return;
+    }
+
+    const aptRef = doc(db, 'apartments', id);
+    const aptSnap = await getDoc(aptRef);
+
+    if (aptSnap.exists()) {
+      const apt = aptSnap.data() as any;
+      setNumber(apt.number || '');
+      setBlock(apt.block || '');
       setResidentName(apt.resident_name || '');
       setResidentType(apt.resident_role || 'Proprietário');
-
-      // 2. Fetch Latest Approved Registration
-      const { data: reg } = await supabase
-        .from('resident_registrations')
-        .select('*')
-        .eq('apartment_id', id)
-        .eq('status', 'APROVADO')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (reg) {
-        setResidentName(reg.full_name);
-        setCpf(reg.cpf ? formatCPF(reg.cpf) : '');
-        setBirthDate(reg.birth_date || '');
-        setPhone(reg.phone ? formatPhone(reg.phone) : '');
-        setResidentType(reg.resident_type);
-        setGarageSpot(reg.garage_spot || '');
-        setIsFinancialResponsible(reg.is_financial_responsible);
-        setFinancialResponsibleName(reg.financial_responsible_name || '');
-        setFinancialResponsibleCpf(reg.financial_responsible_cpf ? formatCPF(reg.financial_responsible_cpf) : '');
-        setOwnerName(reg.owner_name || '');
-        setOwnerPhone(reg.owner_phone ? formatPhone(reg.owner_phone) : '');
-        setAdditionalResidents(reg.additional_residents || []);
-      }
     }
+
+    const regsSnap = await getDocs(query(
+      collection(db, 'resident_registrations'),
+      where('apartment_id', '==', id)
+    ));
+
+    const approvedRegs = regsSnap.docs
+      .map(doc => ({ id: doc.id, ...(doc.data() as any) }))
+      .filter((reg: any) => reg.status === 'APROVADO')
+      .sort((a: any, b: any) => {
+        const aTime = new Date(a.created_at).getTime() || 0;
+        const bTime = new Date(b.created_at).getTime() || 0;
+        return bTime - aTime;
+      });
+
+    if (approvedRegs.length > 0) {
+      const reg = approvedRegs[0];
+      setResidentName(reg.full_name || '');
+      setCpf(reg.cpf ? formatCPF(reg.cpf) : '');
+      setBirthDate(reg.birth_date || '');
+      setPhone(reg.phone ? formatPhone(reg.phone) : '');
+      setResidentType(reg.resident_type || 'Proprietário');
+      setGarageSpot(reg.garage_spot || '');
+      setIsFinancialResponsible(reg.is_financial_responsible ?? true);
+      setFinancialResponsibleName(reg.financial_responsible_name || '');
+      setFinancialResponsibleCpf(reg.financial_responsible_cpf ? formatCPF(reg.financial_responsible_cpf) : '');
+      setOwnerName(reg.owner_name || '');
+      setOwnerPhone(reg.owner_phone ? formatPhone(reg.owner_phone) : '');
+      setAdditionalResidents(reg.additional_residents || []);
+    }
+
     setIsLoading(false);
   };
 
@@ -126,7 +135,6 @@ const UnitRegistration: React.FC = () => {
     setIsSaving(true);
 
     try {
-      // 1. Update/Insert Apartment Structure
       const aptPayload = {
         number,
         block,
@@ -136,30 +144,26 @@ const UnitRegistration: React.FC = () => {
 
       let aptId = id;
 
-      if (isEdit) {
-        const { error } = await supabase.from('apartments').update(aptPayload).eq('id', id);
-        if (error) throw error;
+      if (isEdit && id) {
+        await updateDoc(doc(db, 'apartments', id), aptPayload);
       } else {
-        const { data, error } = await supabase.from('apartments').insert([aptPayload]).select().single();
-        if (error) throw error;
-        aptId = data.id;
+        const aptDoc = await addDoc(collection(db, 'apartments'), aptPayload);
+        aptId = aptDoc.id;
       }
 
-      // 2. Create New Approved Registration (History) OR Update Latest?
-      // Strategy: Create a new approved registration to keep history of changes, 
-      // OR update the latest one if we want to "fix" it.
-      // Let's UPDATE the latest approved one if it exists to avoid duplication on simple edits,
-      // or INSERT if none exists.
-
-      // First, check if there is an existing approved registration
-      const { data: existingReg } = await supabase
-        .from('resident_registrations')
-        .select('id')
-        .eq('apartment_id', aptId)
-        .eq('status', 'APROVADO')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      const regsQuery = query(
+        collection(db, 'resident_registrations'),
+        where('apartment_id', '==', aptId)
+      );
+      const existingRegSnap = await getDocs(regsQuery);
+      const existingReg = existingRegSnap.docs
+        .map(doc => ({ id: doc.id, ...(doc.data() as any) }))
+        .filter((reg: any) => reg.status === 'APROVADO')
+        .sort((a: any, b: any) => {
+          const aTime = new Date(a.created_at).getTime() || 0;
+          const bTime = new Date(b.created_at).getTime() || 0;
+          return bTime - aTime;
+        })[0] || null;
 
       const regPayload = {
         apartment_id: aptId,
@@ -175,20 +179,14 @@ const UnitRegistration: React.FC = () => {
         owner_name: residentType === 'Inquilino' ? ownerName : null,
         owner_phone: residentType === 'Inquilino' ? ownerPhone.replace(/\D/g, '') : null,
         additional_residents: additionalResidents,
-        status: 'APROVADO'
+        status: 'APROVADO',
+        created_at: new Date().toISOString()
       };
 
       if (existingReg) {
-        const { error } = await supabase
-          .from('resident_registrations')
-          .update(regPayload)
-          .eq('id', existingReg.id);
-        if (error) throw error;
+        await updateDoc(doc(db, 'resident_registrations', existingReg.id), regPayload);
       } else {
-        const { error } = await supabase
-          .from('resident_registrations')
-          .insert([regPayload]);
-        if (error) throw error;
+        await addDoc(collection(db, 'resident_registrations'), regPayload);
       }
 
       alert('Dados atualizados com sucesso!');
@@ -475,13 +473,14 @@ const UnitRegistration: React.FC = () => {
               type="button"
               onClick={async () => {
                 if (confirm('Tem certeza que deseja remover esta unidade permanentemente?')) {
-                  const { error } = await supabase
-                    .from('apartments')
-                    .delete()
-                    .eq('id', id);
-
-                  if (!error) navigate('/units');
-                  else alert('Erro ao remover: ' + error.message);
+                  try {
+                    if (id) {
+                      await deleteDoc(doc(db, 'apartments', id));
+                      navigate('/units');
+                    }
+                  } catch (error: any) {
+                    alert('Erro ao remover: ' + (error.message || 'Falha ao deletar'));
+                  }
                 }
               }}
               className="w-full py-3 text-red-500 font-bold text-xs uppercase tracking-[3px] opacity-60 hover:opacity-100 transition-opacity"

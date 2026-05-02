@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { storage } from '../data';
-import { supabase } from '../lib/supabase';
 
 interface SettingsProps {
   toggleDarkMode: () => void;
@@ -27,38 +26,15 @@ const Settings: React.FC<SettingsProps> = ({ toggleDarkMode, isDarkMode, onLogou
   const [editUser, setEditUser] = useState(user);
 
   useEffect(() => {
-    const loadProfile = async () => {
-      const { data: { user: sbUser } } = await supabase.auth.getUser();
-      if (sbUser) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', sbUser.id)
-          .single();
-
-        if (profile) {
-          const userData = {
-            name: profile.name || sbUser.email?.split('@')[0] || 'Usuário',
-            role: profile.role || 'Administrador',
-            condo: profile.condo || 'Luci Berkembrock',
-            avatarUrl: profile.avatar_url || ''
-          };
-          setUser(userData);
-          setEditUser(userData);
-        } else {
-          // Default for first time
-          const defaultData = {
-            name: sbUser.email?.split('@')[0] || 'Usuário',
-            role: 'Administrador',
-            condo: 'Luci Berkembrock',
-            avatarUrl: ''
-          };
-          setUser(defaultData);
-          setEditUser(defaultData);
-        }
-      }
+    const storedProfile = storage.getUserProfile ? storage.getUserProfile() : null;
+    const defaultData = {
+      name: storedProfile?.name || 'Administrador',
+      role: storedProfile?.role || 'Administrador',
+      condo: storedProfile?.condo || 'Luci Berkembrock',
+      avatarUrl: storedProfile?.avatarUrl || ''
     };
-    loadProfile();
+    setUser(defaultData);
+    setEditUser(defaultData);
   }, []);
 
   // Password State
@@ -73,24 +49,8 @@ const Settings: React.FC<SettingsProps> = ({ toggleDarkMode, isDarkMode, onLogou
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const { data: { user: sbUser } } = await supabase.auth.getUser();
-      if (!sbUser) return;
-
-      const { error } = await supabase
-        .from('profiles')
-        .upsert({
-          id: sbUser.id,
-          name: editUser.name,
-          role: editUser.role,
-          condo: editUser.condo,
-          avatar_url: editUser.avatarUrl,
-          updated_at: new Date().toISOString()
-        });
-
-      if (error) throw error;
-
       setUser(editUser);
-      storage.saveUserProfile(editUser); // Keep local for backup/offline
+      storage.saveUserProfile(editUser);
       showMessage('Perfil atualizado com sucesso!');
       setTimeout(() => setView('main'), 1000);
     } catch (err: any) {
@@ -117,22 +77,11 @@ const Settings: React.FC<SettingsProps> = ({ toggleDarkMode, isDarkMode, onLogou
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = async () => {
+      reader.onloadend = () => {
         const newAvatar = reader.result as string;
         const newUser = { ...user, avatarUrl: newAvatar };
-        
+
         try {
-          const { data: { user: sbUser } } = await supabase.auth.getUser();
-          if (sbUser) {
-            await supabase
-              .from('profiles')
-              .upsert({
-                id: sbUser.id,
-                avatar_url: newAvatar,
-                updated_at: new Date().toISOString()
-              });
-          }
-          
           storage.saveUserProfile(newUser);
           setUser(newUser);
           setEditUser(newUser);

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
+import { db } from '../lib/firebaseConfig';
+import { collection, getDocs, query, orderBy, addDoc } from 'firebase/firestore';
 
 interface Apartment {
     id: string;
@@ -45,15 +46,12 @@ const ResidentRegistration: React.FC = () => {
 
     const fetchApartments = async () => {
         setIsLoading(true);
-        const { data, error } = await supabase
-            .from('apartments')
-            .select('id, number, block')
-            .order('number');
-
-        if (error) {
+        try {
+            const snap = await getDocs(query(collection(db, 'apartments'), orderBy('number')));
+            const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setApartments(data as Apartment[]);
+        } catch (error: any) {
             setErrors(prev => ({ ...prev, general: 'Erro ao carregar unidades.' }));
-        } else {
-            setApartments(data || []);
         }
         setIsLoading(false);
     };
@@ -285,9 +283,8 @@ const ResidentRegistration: React.FC = () => {
 
         setIsSubmitting(true);
 
-        const { error: submitError } = await supabase
-            .from('resident_registrations')
-            .insert([{
+        try {
+            await addDoc(collection(db, 'resident_registrations'), {
                 apartment_id: selectedApartment,
                 full_name: fullName,
                 cpf: cpf.replace(/[^\d]/g, ''),
@@ -301,14 +298,14 @@ const ResidentRegistration: React.FC = () => {
                 owner_name: residentType === 'Inquilino' ? ownerName : null,
                 owner_phone: residentType === 'Inquilino' ? ownerPhone.replace(/[^\d]/g, '') : null,
                 additional_residents: additionalResidents,
-                status: 'PENDENTE'
-            }]);
-
-        if (submitError) {
-            setErrors(prev => ({ ...prev, general: 'Erro ao enviar: ' + submitError.message }));
-        } else {
+                status: 'PENDENTE',
+                created_at: new Date().toISOString()
+            });
             setSuccess(true);
+        } catch (error: any) {
+            setErrors(prev => ({ ...prev, general: 'Erro ao enviar: ' + (error.message || 'Falha no envio') }));
         }
+
         setIsSubmitting(false);
     };
 

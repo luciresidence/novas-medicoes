@@ -1,513 +1,251 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
-import { reportService } from '../services/reportService';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { db } from '../lib/firebaseConfig';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 
 const ApartmentList: React.FC = () => {
   const navigate = useNavigate();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState<'todos' | 'pendente' | 'parcial' | 'concluido'>('todos');
-  const [savedReadings, setSavedReadings] = useState<any[]>([]);
-  const [isReportsOpen, setIsReportsOpen] = useState(false);
-  const [exportingReport, setExportingReport] = useState<string | null>(null);
-  const [reportType, setReportType] = useState<'mensal' | 'individual'>('mensal');
-
-  // Global filter state for current view
-  const [currentReferenceDate, setCurrentReferenceDate] = useState(() => {
-    const d = new Date();
-    d.setDate(1); // Start at day 1 to be safe from month overflow
-    return d;
-  });
-
-  const [individualFilter, setIndividualFilter] = useState({
-    aptId: '',
-    startDate: '',
-    endDate: ''
-  });
+  const [searchParams] = useSearchParams();
+  const dateParam = searchParams.get('date');
+  const currentReferenceDate = dateParam ? new Date(dateParam) : new Date();
 
   const [apartments, setApartments] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [readings, setReadings] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterMode, setFilterMode] = useState<'todos' | 'pendentes' | 'parciais' | 'concluidos'>('todos');
 
-  // Derived state for selected month index (0-11) for report dropdown
-  const [selectedMonth, setSelectedMonth] = useState(currentReferenceDate.getMonth());
-
-  // Sync selectedMonth when currentReferenceDate changes
-  useEffect(() => {
-    setSelectedMonth(currentReferenceDate.getMonth());
-  }, [currentReferenceDate]);
-
-  const fetchData = async () => {
-    setIsLoading(true);
-    const { data: apts } = await supabase.from('apartments').select('*').order('number');
-    const { data: reads } = await supabase.from('readings').select('*');
-
-    if (apts) {
-      const mappedApts = apts.map(apt => ({
-        ...apt,
-        residentName: apt.resident_name,
-        residentRole: apt.resident_role,
-        avatarUrl: apt.avatar_url
-      }));
-
-      // Ordenação customizada: Unidades com texto primeiro, depois Bloco A, depois Bloco B
-      const sortedApts = mappedApts.sort((a, b) => {
-        const numA = parseInt(a.number);
-        const numB = parseInt(b.number);
-        const isNumericA = !isNaN(numA);
-        const isNumericB = !isNaN(numB);
-
-        // Unidades com texto (não numéricos) sempre primeiro
-        if (!isNumericA && isNumericB) return -1;
-        if (isNumericA && !isNumericB) return 1;
-
-        // Se ambos são texto, ordenar alfabeticamente
-        if (!isNumericA && !isNumericB) {
-          return a.number.localeCompare(b.number);
-        }
-
-        // Se ambos são numéricos, separar por bloco
-        if (a.block !== b.block) {
-          // Bloco A antes do Bloco B
-          return a.block.localeCompare(b.block);
-        }
-
-        // Dentro do mesmo bloco, ordenar por número
-        return numA - numB;
-      });
-
-      setApartments(sortedApts);
+  const getBlockTheme = (block: string | undefined) => {
+    if (block?.toUpperCase() === 'B') {
+      return {
+        badge: 'bg-emerald-100 text-emerald-600',
+        role: 'text-emerald-700/60 border-emerald-100 bg-emerald-50/50',
+        unitText: 'text-emerald-700'
+      };
     }
-
-    if (reads) setSavedReadings(reads);
-    setIsLoading(false);
+    return {
+      badge: 'bg-[#fff1f4] text-[#7a1b3c]',
+      role: 'text-rose-700/50 border-rose-100 bg-rose-50/30',
+      unitText: 'text-[#1a202c]'
+    };
   };
 
   useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const aptsSnap = await getDocs(collection(db, 'apartments'));
+        const aptsData = aptsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        const startOfMonth = new Date(currentReferenceDate.getFullYear(), currentReferenceDate.getMonth(), 1, 0, 0, 0);
+        const endOfMonth = new Date(currentReferenceDate.getFullYear(), currentReferenceDate.getMonth() + 1, 0, 23, 59, 59);
+
+        const qReads = query(
+          collection(db, 'readings'),
+          where('date', '>=', startOfMonth.toISOString().split('T')[0]),
+          where('date', '<=', endOfMonth.toISOString().split('T')[0] + 'T23:59:59')
+        );
+        const readsSnap = await getDocs(qReads);
+        const readsData = readsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        const sortedApts = aptsData.sort((a: any, b: any) => {
+          const nameA = (a.resident_name || a.residentName || '').toUpperCase();
+          const nameB = (b.resident_name || b.residentName || '').toUpperCase();
+          if (nameA.includes('CONDOMÍNIO')) return -1;
+          if (nameB.includes('CONDOMÍNIO')) return 1;
+          const numA = parseInt(a.number || 0);
+          const numB = parseInt(b.number || 0);
+          if (a.block !== b.block) return (a.block || '').localeCompare(b.block || '');
+          return numA - numB;
+        });
+
+        setApartments(sortedApts);
+        setReadings(readsData);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    };
     fetchData();
-  }, []);
+  }, [dateParam]);
 
-  const getAptStatus = (id: string) => {
-    // Filter readings by the current reference month/year
-    const relevantReadings = savedReadings.filter(r => {
-      const rDate = new Date(r.date);
-      return rDate.getMonth() === currentReferenceDate.getMonth() &&
-        rDate.getFullYear() === currentReferenceDate.getFullYear();
-    });
-
-    const hasWater = relevantReadings.some(r => r.apartment_id === id && r.type === 'water');
-    const hasGas = relevantReadings.some(r => r.apartment_id === id && r.type === 'gas');
-    const isFullyDone = hasWater && hasGas;
-    const isPartial = (hasWater || hasGas) && !isFullyDone;
-    const isPending = !hasWater && !hasGas;
-
-    return { hasWater, hasGas, isFullyDone, isPartial, isPending };
-  };
-
-  const calculateCompletion = () => {
-    if (apartments.length === 0) return 0;
-    const completed = apartments.filter(ap => getAptStatus(ap.id).isFullyDone).length;
-    return (completed / apartments.length) * 100;
-  };
-
-  const filteredApartments = apartments.filter(ap => {
-    const matchesSearch = ap.number.includes(searchTerm) || ap.residentName.toLowerCase().includes(searchTerm.toLowerCase());
-    const status = getAptStatus(ap.id);
-
-    if (filterStatus === 'pendente') return matchesSearch && status.isPending;
-    if (filterStatus === 'parcial') return matchesSearch && status.isPartial;
-    if (filterStatus === 'concluido') return matchesSearch && status.isFullyDone;
-    return matchesSearch;
+  const apartmentStatus = apartments.map(apt => {
+    const aptReadings = readings.filter(r => r.apartment_id === apt.id);
+    const hasWater = aptReadings.some(r => r.type === 'water');
+    const hasGas = aptReadings.some(r => r.type === 'gas');
+    return {
+      ...apt,
+      hasWater,
+      hasGas,
+      status: hasWater && hasGas ? 'concluidos' : (!hasWater && !hasGas ? 'pendentes' : 'parciais') as 'concluidos' | 'pendentes' | 'parciais'
+    };
   });
 
-  const handleDownloadReport = (type: string) => {
-    const referenceYear = currentReferenceDate.getFullYear();
-    const monthName = new Date(referenceYear, selectedMonth).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-    const reportTitle = `${monthName.charAt(0).toUpperCase() + monthName.slice(1)}`;
+  const filteredApartments = apartmentStatus.filter(apt => {
+    const searchMatch =
+      (apt.number || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (apt.resident_name || apt.residentName || '').toLowerCase().includes(searchTerm.toLowerCase());
 
-    setExportingReport(type);
+    const filterMatch = filterMode === 'todos' || apt.status === filterMode;
+    return searchMatch && filterMatch;
+  });
 
-    // Filter based on selected type/month
-    let filteredReadings = [...savedReadings];
+  const readingsByApartment = readings.reduce<Record<string, { water: boolean; gas: boolean }>>((acc, reading) => {
+    const apartmentId = reading.apartment_id;
+    if (!apartmentId) return acc;
+    if (!acc[apartmentId]) acc[apartmentId] = { water: false, gas: false };
+    if (reading.type === 'water') acc[apartmentId].water = true;
+    if (reading.type === 'gas') acc[apartmentId].gas = true;
+    return acc;
+  }, {});
 
-    setTimeout(() => {
-      try {
-        if (type === 'Relatório Mensal PDF' || type === 'Planilha Excel' || type === 'Consumo Água' || type === 'Consumo Gás') {
-          // Filter by selected month and reference year
-          // We use selectedMonth from state (dropdown) and referenceYear from context
+  const completedReadings = apartments.reduce((sum, apt) => {
+    const apartmentReadings = readingsByApartment[apt.id] || { water: false, gas: false };
+    return sum + (apartmentReadings.water ? 1 : 0) + (apartmentReadings.gas ? 1 : 0);
+  }, 0);
 
-          filteredReadings = savedReadings.filter(r => {
-            const d = new Date(r.date);
-            return d.getMonth() === selectedMonth && d.getFullYear() === referenceYear;
-          });
+  const totalExpectedReadings = apartments.length * 2;
+  const progress = totalExpectedReadings > 0
+    ? Math.min(100, Math.round((completedReadings / totalExpectedReadings) * 100))
+    : 0;
 
-          if (filteredReadings.length === 0) {
-            alert("Nenhum registro encontrado para o mês selecionado.");
-            setExportingReport(null);
-            return;
-          }
-
-          if (type === 'Relatório Mensal PDF') {
-            reportService.generateMonthlyPDF(filteredReadings, apartments, reportTitle);
-          } else if (type === 'Planilha Excel') {
-            reportService.generateMonthlyExcel(filteredReadings, apartments);
-          } else if (type === 'Consumo Água') {
-            const waterData = filteredReadings.filter(r => r.type === 'water');
-            reportService.generateMonthlyPDF(waterData, apartments, reportTitle);
-          } else if (type === 'Consumo Gás') {
-            const gasData = filteredReadings.filter(r => r.type === 'gas');
-            reportService.generateMonthlyPDF(gasData, apartments, reportTitle);
-          }
-        } else if (type === 'Individual') {
-          if (!individualFilter.aptId) {
-            alert("Por favor, selecione uma unidade.");
-            setExportingReport(null);
-            return;
-          }
-          const apt = apartments.find(a => a.id === individualFilter.aptId);
-          let readings = savedReadings.filter(r => r.apartment_id === individualFilter.aptId);
-
-          if (individualFilter.startDate && individualFilter.endDate) {
-            const start = new Date(individualFilter.startDate).getTime();
-            const end = new Date(individualFilter.endDate).getTime();
-            readings = readings.filter(r => {
-              const d = new Date(r.date).getTime();
-              return d >= start && d <= end;
-            });
-          }
-
-          reportService.generateIndividualPDF(apt, readings, individualFilter.startDate, individualFilter.endDate);
-        }
-        setExportingReport(null);
-      } catch (error) {
-        console.error("Erro ao gerar relatório:", error);
-        const msg = error instanceof Error ? error.message : String(error);
-        alert(`Erro detalhado: ${msg}`);
-        setExportingReport(null);
-      }
-    }, 100);
-  };
-
-  const filterChips = [
-    { id: 'todos', label: 'Todos', icon: 'list' },
-    { id: 'pendente', label: 'Pendentes', icon: 'pending_actions' },
-    { id: 'parcial', label: 'Parciais', icon: 'incomplete_circle' },
-    { id: 'concluido', label: 'Concluídos', icon: 'task_alt' },
-  ];
-
-  const completionPercent = calculateCompletion();
-  const isAllComplete = completionPercent === 100 && apartments.length > 0;
-
-  const handleMonthChange = (offset: number) => {
-    const newDate = new Date(currentReferenceDate);
-    newDate.setDate(1); // Always set to day 1 to avoid month skipping (e.g. Jan 31 + 1 month -> Mar)
-    newDate.setMonth(newDate.getMonth() + offset);
-    setCurrentReferenceDate(newDate);
-  };
+  if (loading) return <div className="p-10 text-center font-bold text-[#7a1b3c]">Carregando...</div>;
 
   return (
-    <div className="scroll-container flex-1 bg-slate-50 dark:bg-background-dark">
-      <div className="pt-safe pb-32">
-        <header className="sticky top-0 z-20 bg-white/95 dark:bg-surface-dark/95 backdrop-blur-md px-5 pb-4 pt-6 border-b dark:border-gray-800 shadow-sm">
-          <div className="flex items-center justify-between">
+    <div className="pb-32 pt-safe flex-1 bg-white min-h-screen">
+      <div className="max-w-md mx-auto">
+        <header className="p-6 space-y-5">
+          <div className="flex justify-between items-start">
             <div>
-              <h2 className="text-xl font-bold uppercase tracking-tighter text-primary italic">MEDIÇÕES</h2>
-              <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Leituras Luci Berkembrock</p>
+              <h1 className="text-3xl font-black text-[#7a1b3c] uppercase italic leading-none tracking-tighter">Medições</h1>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[2px] mt-1">Leituras Luci Berkembrock</p>
             </div>
             <button
-              onClick={() => setIsReportsOpen(true)}
-              className="size-11 rounded-2xl bg-primary text-white shadow-lg shadow-primary/20 flex items-center justify-center active:scale-90 transition-all"
+              onClick={() => navigate(`/reports?date=${currentReferenceDate.toISOString()}`)}
+              className="size-12 bg-[#7a1b3c] rounded-[18px] flex items-center justify-center text-white shadow-xl shadow-[#7a1b3c]/20"
             >
               <span className="material-symbols-outlined text-2xl">analytics</span>
             </button>
           </div>
 
-          {/* Month Selector */}
-          <div className="flex items-center justify-between bg-white dark:bg-gray-800 p-1.5 rounded-2xl shadow-sm border border-slate-100 dark:border-gray-700 mt-4 mb-2">
-            <button
-              onClick={() => handleMonthChange(-1)}
-              className="size-10 flex items-center justify-center text-slate-400 hover:text-primary active:scale-95 transition-all"
-            >
-              <span className="material-symbols-outlined">chevron_left</span>
-            </button>
+          <div className="flex items-center justify-between px-2">
+            <button onClick={() => {
+              const newDate = new Date(currentReferenceDate);
+              newDate.setMonth(newDate.getMonth() - 1);
+              navigate(`?date=${newDate.toISOString()}`);
+            }} className="text-slate-300"><span className="material-symbols-outlined text-xl">chevron_left</span></button>
             <div className="text-center">
-              <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest block">Mês de Referência</span>
-              <span className="text-sm font-black text-slate-700 dark:text-white uppercase tracking-tighter">
-                {currentReferenceDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
-              </span>
+              <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-1">Mês de Referência</p>
+              <p className="text-sm font-black text-slate-700 uppercase">{currentReferenceDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</p>
             </div>
-            <button
-              onClick={() => handleMonthChange(1)}
-              className="size-10 flex items-center justify-center text-slate-400 hover:text-primary active:scale-95 transition-all"
-            >
-              <span className="material-symbols-outlined">chevron_right</span>
-            </button>
+            <button onClick={() => {
+              const newDate = new Date(currentReferenceDate);
+              newDate.setMonth(newDate.getMonth() + 1);
+              navigate(`?date=${newDate.toISOString()}`);
+            }} className="text-slate-300"><span className="material-symbols-outlined text-xl">chevron_right</span></button>
           </div>
 
-          {/* Progress Bar */}
-          <div className="px-1 mb-4">
-            <div className="flex justify-between items-end mb-1">
-              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Progresso do Mês</span>
-              <span className="text-[10px] font-black text-primary">{Math.round(completionPercent)}%</span>
+          <div className="space-y-1.5 px-1">
+            <div className="flex justify-between text-[8px] font-black text-slate-400 uppercase tracking-widest">
+              <span>Progresso do Mês</span>
+              <span className="text-[#7a1b3c]">
+               {progress}%
+              </span>
             </div>
-            <div className="h-2 w-full bg-slate-100 dark:bg-gray-800 rounded-full overflow-hidden">
+            <div className="h-[2px] bg-slate-100 rounded-full overflow-hidden">
               <div
-                className="h-full bg-primary transition-all duration-1000 ease-out rounded-full"
-                style={{ width: `${completionPercent}%` }}
-              />
+                className="h-full bg-[#7a1b3c] transition-all duration-700 ease-out"
+                style={{ width: `${progress}%` }}
+              ></div>
             </div>
           </div>
 
           <div className="relative">
+            <span className="material-symbols-outlined absolute left-5 top-1/2 -translate-y-1/2 text-slate-300">search</span>
             <input
               type="text"
               placeholder="Buscar apto ou morador..."
-              className="w-full bg-slate-100 dark:bg-gray-800 border-none rounded-2xl h-11 pl-11 pr-4 text-sm focus:ring-2 focus:ring-primary shadow-inner font-semibold"
+              className="w-full h-14 pl-14 pr-6 bg-[#f4f7fa] rounded-3xl border-none font-bold text-slate-600 placeholder:text-slate-300 focus:ring-0"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
-            <span className="material-symbols-outlined absolute left-3.5 top-2.5 text-slate-400 text-xl">search</span>
           </div>
 
-          <div className="flex gap-2 mt-4 overflow-x-auto no-scrollbar pb-1">
-            {filterChips.map(chip => (
+          <div className="grid grid-cols-4 gap-3 mt-4">
+            {[
+              { key: 'todos', label: 'TODOS', icon: 'menu' },
+              { key: 'pendentes', label: 'PENDENTES', icon: 'pending_actions' },
+              { key: 'parciais', label: 'PARCIAIS', icon: 'dark_mode' },
+              { key: 'concluidos', label: 'CONCLUÍDOS', icon: 'check_circle' }
+            ].map((tab) => (
               <button
-                key={chip.id}
-                onClick={() => setFilterStatus(chip.id as any)}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-[9px] font-bold uppercase tracking-wider whitespace-nowrap transition-all border shrink-0 ${filterStatus === chip.id
-                  ? 'bg-primary border-primary text-white shadow-md'
-                  : 'bg-white dark:bg-gray-800 border-slate-100 dark:border-gray-700 text-slate-500'
-                  }`}
+                key={tab.key}
+                type="button"
+                onClick={() => setFilterMode(tab.key as any)}
+                className={`w-full h-12 rounded-[24px] border px-3 text-[10px] font-black uppercase tracking-[0.22em] transition-all flex items-center justify-center gap-2 ${filterMode === tab.key ? 'bg-[#7a1b3c] border-[#7a1b3c] text-white shadow-lg shadow-[#7a1b3c]/20' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
               >
-                <span className="material-symbols-outlined text-sm font-bold">{chip.icon}</span>
-                {chip.label}
+                <span className={`inline-flex h-8 w-8 items-center justify-center rounded-full ${filterMode === tab.key ? 'bg-white/15 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                  <span className="material-symbols-outlined text-sm">{tab.icon}</span>
+                </span>
+                <span className="leading-none text-[10px]">{tab.label}</span>
               </button>
             ))}
           </div>
         </header>
 
-        <div className="p-4 space-y-3">
-          {filteredApartments.length === 0 ? (
-            <div className="py-20 text-center space-y-4">
-              <span className="material-symbols-outlined text-5xl text-slate-200">domain_disabled</span>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Nenhuma unidade encontrada</p>
-            </div>
-          ) : (
-            filteredApartments.map(ap => {
-              const { hasWater, hasGas, isFullyDone } = getAptStatus(ap.id);
-              return (
-                <div
-                  key={ap.id}
-                  onClick={() => navigate(`/readings/${ap.id}?date=${currentReferenceDate.toISOString()}`)}
-                  className="flex items-center gap-3 bg-white dark:bg-surface-dark p-4 rounded-[2rem] border border-white dark:border-gray-800 active:scale-[0.98] transition-all cursor-pointer shadow-sm relative overflow-hidden"
-                >
-                  <div className={`size-16 rounded-2xl flex flex-col items-center justify-center relative border flex-shrink-0 shadow-inner ${ap.block === 'B'
-                      ? 'bg-emerald-50/50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800/30'
-                      : ap.block === 'A'
-                        ? 'bg-rose-50/50 dark:bg-rose-900/10 border-rose-100 dark:border-rose-900/20'
-                        : 'bg-slate-50 dark:bg-gray-800 border-slate-100 dark:border-gray-700'
-                    }`}>
-                    <span className={`font-black text-lg tracking-tighter leading-none ${ap.block === 'B'
-                        ? 'text-emerald-800 dark:text-emerald-400'
-                        : ap.block === 'A'
-                          ? 'text-primary dark:text-rose-400'
-                          : 'text-primary'
-                      }`}>{ap.number}</span>
-                    <span className={`text-[10px] font-bold uppercase tracking-widest mt-0.5 ${ap.block === 'B'
-                        ? 'text-emerald-600/60 dark:text-emerald-500/50'
-                        : ap.block === 'A'
-                          ? 'text-rose-900/60 dark:text-rose-500/50'
-                          : 'text-slate-400'
-                      }`}>Bl {ap.block}</span>
-                    {isFullyDone && (
-                      <div className="absolute -top-1 -right-1 size-6 bg-green-500 rounded-full flex items-center justify-center border-2 border-white dark:border-surface-dark shadow-sm">
-                        <span className="material-symbols-outlined text-[10px] text-white font-black">check</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-col h-full justify-center">
-                      <p className="font-black text-slate-900 dark:text-white uppercase tracking-tighter text-base leading-tight line-clamp-2 mb-1.5 pr-1">
-                        {ap.residentName}
-                      </p>
+        <main className="px-6 space-y-4 border-t border-slate-50 pt-6">
+          {filteredApartments.map(apt => {
+            const aptReadings = readings.filter(r => r.apartment_id === apt.id);
+            const hasWater = aptReadings.some(r => r.type === 'water');
+            const hasGas = aptReadings.some(r => r.type === 'gas');
 
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="px-2 py-0.5 bg-primary/5 text-primary text-[8px] font-bold uppercase tracking-widest rounded-md border border-primary/10 shrink-0">
-                          {ap.residentRole}
-                        </span>
-
-                        <div className="flex items-center gap-2.5 bg-slate-50/80 dark:bg-gray-800/80 px-2.5 py-1 rounded-full border border-slate-100 dark:border-gray-700/50 shrink-0 shadow-sm">
-                          <div className="flex items-center border-r border-slate-200 dark:border-gray-700 pr-2 gap-1">
-                            <span className={`material-symbols-outlined text-[15px] ${hasWater ? 'text-blue-500 fill-1' : 'text-slate-300 dark:text-gray-600'}`}>water_drop</span>
-                            <span className={`text-[7px] font-black ${hasWater ? 'text-blue-600' : 'text-slate-400'}`}>ÁGUA</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <span className={`material-symbols-outlined text-[15px] ${hasGas ? 'text-orange-500 fill-1' : 'text-slate-300 dark:text-gray-600'}`}>local_fire_department</span>
-                            <span className={`text-[7px] font-black ${hasGas ? 'text-orange-600' : 'text-slate-400'}`}>GÁS</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-
-        {/* Process Button - Appears at the end of the list when 100% complete */}
-        {isAllComplete && (
-          <div className="px-4 pb-8 flex justify-center animate-in slide-in-from-bottom duration-500">
-            <button
-              onClick={() => {
-                alert("Ciclo processado com sucesso! \n\nTodas as leituras foram validadas. \nPara iniciar o próximo mês, basta alterar a data no seletor.");
-                handleMonthChange(1);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              className="w-full max-w-sm h-12 bg-gradient-to-r from-primary to-pink-600 text-white rounded-full font-bold uppercase tracking-widest text-xs flex items-center justify-center gap-2 shadow-xl shadow-primary/30 active:scale-[0.98] transition-all"
-            >
-              <span className="material-symbols-outlined text-lg">verified</span>
-              Processar Medições
-            </button>
-          </div>
-        )}
-      </div>
-
-
-      {isReportsOpen && (
-        <div className="fixed inset-0 z-[60] bg-primary/20 backdrop-blur-md flex items-end justify-center px-2 pb-2">
-          <div className="w-full max-w-md bg-white dark:bg-surface-dark rounded-[3rem] p-6 space-y-6 shadow-2xl animate-in slide-in-from-bottom duration-300 border border-primary/10 mb-[env(safe-area-inset-bottom)]">
-            <header className="flex justify-between items-center px-2">
-              <div>
-                <h3 className="text-xl font-bold uppercase tracking-tighter text-primary italic leading-none">Relatórios</h3>
-                <p className="text-[8px] text-slate-400 font-bold uppercase tracking-widest mt-1">Selecione o formato</p>
-              </div>
+            return (
               <button
-                onClick={() => setIsReportsOpen(false)}
-                className="size-10 rounded-full bg-slate-100 dark:bg-gray-800 flex items-center justify-center text-slate-500"
+                key={apt.id}
+                onClick={() => navigate(`/readings/${apt.id}?date=${currentReferenceDate.toISOString()}`)}
+                className="w-full flex items-center gap-5 p-5 bg-white rounded-[35px] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.02)] active:scale-[0.97] transition-all text-left"
               >
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </header>
-
-            <div className="flex bg-slate-100 dark:bg-gray-800 p-1 rounded-2xl">
-              <button
-                onClick={() => setReportType('mensal')}
-                className={`flex-1 h-10 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${reportType === 'mensal' ? 'bg-white dark:bg-surface-dark shadow-sm text-primary' : 'text-slate-400'}`}
-              >
-                Mensal
-              </button>
-              <button
-                onClick={() => setReportType('individual')}
-                className={`flex-1 h-10 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${reportType === 'individual' ? 'bg-white dark:bg-surface-dark shadow-sm text-primary' : 'text-slate-400'}`}
-              >
-                Individual
-              </button>
-            </div>
-
-            {reportType === 'mensal' ? (
-              <div className="space-y-4">
-                <div className="space-y-1.5 px-1">
-                  <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest pl-1">Selecionar Mês</label>
-                  <select
-                    value={selectedMonth}
-                    onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                    className="w-full h-11 bg-slate-50 dark:bg-gray-800/50 rounded-xl px-4 border-none text-xs font-semibold text-slate-700 dark:text-white focus:ring-2 focus:ring-primary"
-                  >
-                    {['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'].map((m, i) => (
-                      <option key={i} value={i}>{m}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-2">
-                  {[
-                    { label: 'Relatório Mensal PDF', icon: 'picture_as_pdf' },
-                    { label: 'Planilha Excel', icon: 'table_view' },
-                    { label: 'Consumo Água', icon: 'water_drop' },
-                    { label: 'Consumo Gás', icon: 'local_fire_department' }
-                  ].map((opt) => (
-                    <button
-                      key={opt.label}
-                      disabled={!!exportingReport}
-                      onClick={() => handleDownloadReport(opt.label)}
-                      className="w-full p-3.5 flex items-center gap-4 bg-slate-50 dark:bg-gray-800/50 rounded-2xl active:scale-[0.98] transition-all disabled:opacity-50"
-                    >
-                      <div className="size-9 rounded-xl bg-white dark:bg-gray-800 shadow-sm flex items-center justify-center text-primary">
-                        <span className="material-symbols-outlined text-lg">{opt.icon}</span>
-                      </div>
-                      <p className="font-bold text-[11px] text-slate-700 dark:text-slate-200 uppercase tracking-tight flex-1 text-left">{opt.label}</p>
-                      {exportingReport === opt.label ? (
-                        <div className="size-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <span className="material-symbols-outlined text-slate-300 text-base">download</span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest pl-1">Unidade</label>
-                  <select
-                    value={individualFilter.aptId}
-                    onChange={(e) => setIndividualFilter({ ...individualFilter, aptId: e.target.value })}
-                    className="w-full h-12 bg-slate-50 dark:bg-gray-800/50 rounded-xl px-4 border-none text-sm font-bold text-slate-700 dark:text-white focus:ring-2 focus:ring-primary"
-                  >
-                    <option value="">Selecione o apto...</option>
-                    {apartments.map(ap => (
-                      <option key={ap.id} value={ap.id}>Apto {ap.number} - {ap.residentName}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1">Data Início</label>
-                    <input
-                      type="date"
-                      value={individualFilter.startDate}
-                      onChange={(e) => setIndividualFilter({ ...individualFilter, startDate: e.target.value })}
-                      className="w-full h-12 bg-slate-50 dark:bg-gray-800/50 rounded-xl px-4 border-none text-xs font-bold text-slate-700 dark:text-white focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1">Data Fim</label>
-                    <input
-                      type="date"
-                      value={individualFilter.endDate}
-                      onChange={(e) => setIndividualFilter({ ...individualFilter, endDate: e.target.value })}
-                      className="w-full h-12 bg-slate-50 dark:bg-gray-800/50 rounded-xl px-4 border-none text-xs font-bold text-slate-700 dark:text-white focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => handleDownloadReport('Individual')}
-                  disabled={!!exportingReport}
-                  className="w-full h-16 bg-primary text-white rounded-[20px] font-black uppercase tracking-[3px] text-[11px] shadow-xl shadow-primary/20 flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50 mt-2"
-                >
-                  {exportingReport === 'Individual' ? (
-                    <div className="size-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  ) : (
+                {(() => {
+                  const theme = getBlockTheme(apt.block);
+                  return (
                     <>
-                      <span className="material-symbols-outlined">picture_as_pdf</span>
-                      Gerar Relatório Individual
-                    </>
-                  )}
-                </button>
-              </div>
-            )}
+                      <div className={`size-16 rounded-[24px] flex flex-col items-center justify-center font-black shrink-0 ${theme.badge}`}>
+                        <span className="text-xl italic leading-none">{apt.number}</span>
+                        <span className="text-[7px] uppercase opacity-60 tracking-tighter">BL {apt.block || 'A'}</span>
+                      </div>
 
-            <button
-              onClick={() => setIsReportsOpen(false)}
-              className="w-full h-14 bg-primary text-white rounded-[1.5rem] font-bold uppercase tracking-[3px] text-[10px] shadow-xl active:scale-95"
-            >
-              Concluído
-            </button>
-          </div>
-        </div>
-      )}
+                      <div className="flex-1 min-w-0">
+                        <h3 className={`font-black truncate uppercase text-sm tracking-tighter mb-1 ${theme.unitText}`}>
+                          {apt.resident_name || apt.residentName}
+                        </h3>
+                        <span className={`text-[8px] font-black uppercase tracking-[2px] border px-2 py-0.5 rounded-md ${theme.role}`}>
+                          {apt.resident_role || 'PROPRIETÁRIO'}
+                        </span>
+                      </div>
+                    </>
+                  );
+                })()}
+
+                <div className="flex flex-col gap-2 shrink-0">
+                  <div className="flex items-center gap-2">
+                     <span className="text-[7px] font-black uppercase text-slate-300 tracking-widest">Água</span>
+                     <div className={`size-4 rounded-full border-2 border-slate-100 flex items-center justify-center ${hasWater ? 'bg-blue-500 border-blue-500' : ''}`}>
+                       {hasWater && <span className="material-symbols-outlined text-[8px] text-white font-bold">check</span>}
+                     </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                     <span className="text-[7px] font-black uppercase text-slate-300 tracking-widest">Gás</span>
+                     <div className={`size-4 rounded-full border-2 border-slate-100 flex items-center justify-center ${hasGas ? 'bg-orange-500 border-orange-500' : ''}`}>
+                       {hasGas && <span className="material-symbols-outlined text-[8px] text-white font-bold">check</span>}
+                     </div>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </main>
+      </div>
     </div>
   );
 };

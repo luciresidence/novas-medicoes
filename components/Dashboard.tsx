@@ -1,7 +1,20 @@
 
 import React, { useState, useEffect } from 'react';
-import { analyzeConsumption } from '../services/geminiService';
-import { MOCK_READINGS } from '../data';
+import { db } from '../lib/firebaseConfig';
+import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
+
+interface FirestoreReading {
+  date: string;
+  type: 'water' | 'gas';
+  current_value?: number;
+  previous_value?: number;
+  apartment_id: string;
+}
+
+interface FirestoreApartment {
+  number: string;
+  block: string;
+}
 
 const Logo = () => (
   <div className="flex flex-col items-center">
@@ -14,8 +27,6 @@ const Logo = () => (
     <p className="text-[8px] font-semibold text-primary/60 uppercase tracking-[4px]">Residence</p>
   </div>
 );
-
-import { supabase } from '../lib/supabase';
 
 const Dashboard: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -33,13 +44,8 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     const fetchInitialDate = async () => {
       try {
-        const { data, error } = await supabase
-          .from('readings')
-          .select('date')
-          .order('date', { ascending: false })
-          .limit(1);
-
-        if (error) throw error;
+        const readsSnap = await getDocs(query(collection(db, 'readings'), orderBy('date', 'desc')));
+        const data = readsSnap.docs.map(doc => ({ id: doc.id, ...(doc.data() as FirestoreReading) }));
 
         if (data && data.length > 0) {
           const lastDate = new Date(data[0].date);
@@ -62,26 +68,23 @@ const Dashboard: React.FC = () => {
 
     try {
       // 1. Fetch current month readings
-      const { data: currentReadings, error: currError } = await supabase
-        .from('readings')
-        .select('*')
-        .gte('date', startOfMonth)
-        .lte('date', endOfMonth);
+      const readsSnap = await getDocs(query(
+        collection(db, 'readings'),
+        where('date', '>=', startOfMonth),
+        where('date', '<=', endOfMonth)
+      ));
+      const currentReadings = readsSnap.docs.map(doc => ({ id: doc.id, ...(doc.data() as FirestoreReading) }));
 
-      if (currError) throw currError;
-
-      // 2. Fetch previous month readings for comparison
       const prevMonthDate = new Date(date.getFullYear(), date.getMonth() - 1, 1);
       const startOfPrevMonth = prevMonthDate.toISOString();
       const endOfPrevMonth = new Date(date.getFullYear(), date.getMonth(), 0, 23, 59, 59).toISOString();
 
-      const { data: prevReadings, error: prevError } = await supabase
-        .from('readings')
-        .select('*')
-        .gte('date', startOfPrevMonth)
-        .lte('date', endOfPrevMonth);
-
-      if (prevError) throw prevError;
+      const prevSnap = await getDocs(query(
+        collection(db, 'readings'),
+        where('date', '>=', startOfPrevMonth),
+        where('date', '<=', endOfPrevMonth)
+      ));
+      const prevReadings = prevSnap.docs.map(doc => ({ id: doc.id, ...(doc.data() as FirestoreReading) }));
 
       const calculateTotal = (readings: any[], type: 'water' | 'gas') => {
         return (readings || [])
@@ -109,23 +112,16 @@ const Dashboard: React.FC = () => {
         gasChange
       });
 
-      // 3. IA Analysis
+      // 3. Análise interna de consumo
       if (currentWater > 0 || currentGas > 0) {
-        const res = await analyzeConsumption({
-          totalWater: currentWater,
-          totalGas: currentGas,
-          waterChange,
-          gasChange,
-          month: date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
-        });
-        setInsight(res);
+        setInsight('Análise automática desativada.');
       } else {
         setInsight('Sem dados de leitura para este mês.');
       }
 
       // 4. Rankings Logic
-      const { data: apartments, error: aptError } = await supabase.from('apartments').select('*');
-      if (aptError) throw aptError;
+      const apartmentsSnap = await getDocs(collection(db, 'apartments'));
+      const apartments = apartmentsSnap.docs.map(doc => ({ id: doc.id, ...(doc.data() as FirestoreApartment) }));
 
       if (apartments && currentReadings) {
         const calcRank = (type: 'water' | 'gas') => {

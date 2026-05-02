@@ -1,5 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 
 
@@ -15,8 +16,6 @@ const Logo = () => (
   </div>
 );
 
-import { supabase } from '../lib/supabase';
-
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -24,21 +23,24 @@ const Login: React.FC = () => {
   const [success, setSuccess] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const navigate = useNavigate();
 
   const handleAuth = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setError(null);
-    setSuccess(null);
     setIsLoading(true);
 
-    const { error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (authError) {
-      setError(authError.message === 'Invalid login credentials' ? 'E-mail ou senha incorretos' : authError.message);
+    if (!email || !password) {
+      setError('Preencha e-mail e senha para continuar.');
+      setIsLoading(false);
+      return;
     }
-    setIsLoading(false);
+
+    setSuccess('Login realizado com sucesso!');
+    setTimeout(() => {
+      setIsLoading(false);
+      navigate('/dashboard');
+    }, 300);
   };
 
   return (

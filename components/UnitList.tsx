@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { db } from '../lib/firebaseConfig';
+import { collection, getDocs } from 'firebase/firestore';
 import { storage } from '../data';
 import { Apartment } from '../types';
 
@@ -27,14 +28,8 @@ const UnitList: React.FC = () => {
   useEffect(() => {
     const fetchUnits = async () => {
       try {
-        const { data, error } = await supabase
-          .from('apartments')
-          .select('*');
-
-        if (error) {
-          setDebugError(`Erro do Banco: ${error.message} (${error.code})`);
-          return;
-        }
+        const unitsSnap = await getDocs(collection(db, 'apartments'));
+        const data = unitsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
         if (data) {
           console.log(`Recebidos ${data.length} apartamentos`);

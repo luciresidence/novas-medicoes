@@ -1,7 +1,22 @@
 
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { db } from '../lib/firebaseConfig';
+import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { Apartment } from '../types';
+
+interface FirestoreReading {
+  apartment_id: string;
+  type: 'water' | 'gas';
+  current_value?: number;
+  previous_value?: number;
+  date: string;
+}
+
+interface FirestoreApartment {
+  number: string;
+  block: string;
+  resident_name?: string;
+}
 
 interface HistoryProps {
   onImageClick: (url: string) => void;
@@ -17,24 +32,20 @@ const History: React.FC<HistoryProps> = ({ onImageClick }) => {
       try {
         setIsLoading(true);
         setDebugError(null);
-        
-        const { data, error } = await supabase
-          .from('readings')
-          .select(`
-            *,
-            apartments (
-              number,
-              block,
-              resident_name
-            )
-          `)
-          .order('date', { ascending: false });
 
-        if (error) {
-          setDebugError(`Erro do Banco: ${error.message} (${error.code})`);
-        } else if (data) {
-          setReadings(data);
-        }
+        const readsSnap = await getDocs(query(collection(db, 'readings'), orderBy('date', 'desc')));
+        const readsData = readsSnap.docs.map(doc => ({ id: doc.id, ...(doc.data() as FirestoreReading) }));
+
+        const apartmentsSnap = await getDocs(collection(db, 'apartments'));
+        const apartmentsData = apartmentsSnap.docs.map(doc => ({ id: doc.id, ...(doc.data() as FirestoreApartment) }));
+        const apartmentMap = new Map(apartmentsData.map((apt: any) => [apt.id, apt]));
+
+        const enriched = readsData.map(read => ({
+          ...read,
+          apartments: apartmentMap.get(read.apartment_id) || { number: '---', block: '---', resident_name: '---' }
+        }));
+
+        setReadings(enriched);
       } catch (err: any) {
         setDebugError(`Erro de Rede/Execução: ${err.message || 'Falha na conexão'}`);
       } finally {
