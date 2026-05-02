@@ -3,12 +3,12 @@ import { getFirestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAe2j2--6Juom-940oNb0eAxE-UvJKxp3o",
-  authDomain: "luci-gestao.firebaseapp.com",
-  projectId: "luci-gestao",
-  storageBucket: "luci-gestao.firebasestorage.app",
-  messagingSenderId: "958031002720",
-  appId: "1:958031002720:web:97aeb47c742e6962689705"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyAe2j2--6Juom-940oNb0eAxE-UvJKxp3o",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "luci-gestao.firebaseapp.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "luci-gestao",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "luci-gestao.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "958031002720",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:958031002720:web:97aeb47c742e6962689705"
 };
 
 // Inicializa o Firebase
