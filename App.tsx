@@ -34,7 +34,11 @@ const App: React.FC = () => {
 
   const handleLogout = async () => {
     try {
+      const savedProfile = localStorage.getItem('condoflow_user');
       localStorage.clear();
+      if (savedProfile) {
+        localStorage.setItem('condoflow_user', savedProfile);
+      }
       navigate('/login');
       window.location.reload();
     } catch (e) {
