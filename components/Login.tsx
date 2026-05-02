@@ -1,8 +1,8 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-
-
+import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { auth } from '../lib/firebaseConfig';
 
 const Logo = () => (
   <div className="flex flex-col items-center">
@@ -16,31 +16,38 @@ const Logo = () => (
   </div>
 );
 
+const ALLOWED_EMAIL = 'luci.residence@gmail.com';
+
 const Login: React.FC = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
-  const handleAuth = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
+  const handleGoogleSignIn = async () => {
     setError(null);
     setIsLoading(true);
 
-    if (!email || !password) {
-      setError('Preencha e-mail e senha para continuar.');
-      setIsLoading(false);
-      return;
-    }
+    try {
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+      const email = user.email?.toLowerCase();
 
-    setSuccess('Login realizado com sucesso!');
-    setTimeout(() => {
+      if (email !== ALLOWED_EMAIL.toLowerCase()) {
+        setError('Esta conta Google não está autorizada.');
+        setIsLoading(false);
+        return;
+      }
+
+      setSuccess('Login realizado com sucesso!');
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 300);
+    } catch (err: any) {
+      setError(err?.message || 'Erro ao realizar login com Google.');
       setIsLoading(false);
-      navigate('/dashboard');
-    }, 300);
+    }
   };
 
   return (
@@ -57,62 +64,40 @@ const Login: React.FC = () => {
         </div>
 
         <div className="p-6 sm:p-8 space-y-4 sm:space-y-6">
-          <form onSubmit={handleAuth} className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">E-mail</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="usuario@email.com"
-                className="w-full h-14 px-5 rounded-2xl border border-slate-100 bg-slate-50 text-slate-700 placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-primary/5 transition-all font-semibold text-sm"
-              />
+          {error && (
+            <div className="bg-red-50 text-red-500 text-[10px] font-bold uppercase tracking-wider p-3 rounded-xl text-center border border-red-100 animate-in fade-in slide-in-from-top-2 duration-300">
+              {error}
             </div>
+          )}
 
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Senha</label>
-              <div className="relative">
-                <input
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full h-14 px-5 pr-12 rounded-2xl border border-slate-100 bg-slate-50 text-slate-700 placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-primary/5 transition-all font-semibold text-sm"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 hover:text-primary transition-colors"
-                >
-                  <span className="material-symbols-outlined">{showPassword ? 'visibility_off' : 'visibility'}</span>
-                </button>
-              </div>
+          {success && (
+            <div className="bg-emerald-50 text-emerald-600 text-[10px] font-bold uppercase tracking-wider p-3 rounded-xl text-center border border-emerald-100 animate-in fade-in slide-in-from-top-2 duration-300">
+              {success}
             </div>
+          )}
 
-            {error && (
-              <div className="bg-red-50 text-red-500 text-[10px] font-bold uppercase tracking-wider p-3 rounded-xl text-center border border-red-100 animate-in fade-in slide-in-from-top-2 duration-300">
-                {error}
-              </div>
-            )}
-
-            {success && (
-              <div className="bg-emerald-50 text-emerald-600 text-[10px] font-bold uppercase tracking-wider p-3 rounded-xl text-center border border-emerald-100 animate-in fade-in slide-in-from-top-2 duration-300">
-                {success}
-              </div>
-            )}
+          <div className="space-y-4">
+            <div className="rounded-[32px] bg-slate-50 border border-slate-200 p-4 text-center">
+              <p className="text-[10px] font-black uppercase tracking-[0.35em] text-slate-400">Use o Google autorizado</p>
+              <p className="mt-2 text-sm text-slate-600">Entre com a conta permitida para acessar o sistema.</p>
+            </div>
 
             <button
-              type="submit"
+              type="button"
+              onClick={handleGoogleSignIn}
               disabled={isLoading}
-              className="w-full h-16 bg-primary text-white rounded-[24px] font-bold uppercase tracking-[3px] text-xs flex items-center justify-center gap-2 shadow-xl shadow-primary/20 active:scale-[0.98] transition-all disabled:opacity-70 disabled:grayscale-[0.5]"
+              className="w-full h-16 bg-[#4285F4] text-white rounded-[24px] font-bold uppercase tracking-[3px] text-xs flex items-center justify-center gap-3 shadow-xl shadow-slate-400/20 active:scale-[0.98] transition-all disabled:opacity-70 disabled:grayscale-[0.5]"
             >
               {isLoading ? (
                 <div className="size-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
-                'Entrar no Sistema'
+                <>
+                  <span className="text-lg">G</span>
+                  Entrar com Google
+                </>
               )}
             </button>
-          </form>
+          </div>
         </div>
       </div>
     </div>

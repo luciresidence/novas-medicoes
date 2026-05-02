@@ -1,6 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { auth } from './lib/firebaseConfig';
 import Dashboard from './components/Dashboard';
 import ApartmentList from './components/ApartmentList';
 import ReadingForm from './components/ReadingForm';
@@ -19,6 +21,7 @@ import Reports from './components/Reports';
 const App: React.FC = () => {
   const [darkMode, setDarkMode] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [firebaseUser, setFirebaseUser] = useState<any>(null);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -30,12 +33,25 @@ const App: React.FC = () => {
     }
   }, [darkMode]);
 
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setFirebaseUser(user);
+      if (!user && !['/login', '/cadastro'].includes(location.pathname)) {
+        navigate('/login');
+      }
+      if (user && location.pathname === '/login') {
+        navigate('/dashboard');
+      }
+    });
+
+    return () => unsubscribe();
+  }, [location.pathname, navigate]);
+
   const toggleDarkMode = () => setDarkMode(!darkMode);
 
   const handleLogout = async () => {
     try {
-      // Mantém o perfil salvo e apenas encerra a sessão atual.
-      // Não há outros dados de sessão armazenados em localStorage neste app.
+      await signOut(auth);
       navigate('/login');
       window.location.reload();
     } catch (e) {
