@@ -34,11 +34,8 @@ const App: React.FC = () => {
 
   const handleLogout = async () => {
     try {
-      const savedProfile = localStorage.getItem('condoflow_user');
-      localStorage.clear();
-      if (savedProfile) {
-        localStorage.setItem('condoflow_user', savedProfile);
-      }
+      // Mantém o perfil salvo e apenas encerra a sessão atual.
+      // Não há outros dados de sessão armazenados em localStorage neste app.
       navigate('/login');
       window.location.reload();
     } catch (e) {
