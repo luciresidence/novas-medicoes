@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { db } from '../lib/firebaseConfig';
 import { collection, addDoc, query, where, getDocs, doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
@@ -14,6 +14,8 @@ const ReadingForm: React.FC = () => {
   const [apartment, setApartment] = useState<Apartment | null>(null);
   const [allApartments, setAllApartments] = useState<any[]>([]);
   const [currentIndex, setCurrentIndex] = useState(-1);
+  const [showAptList, setShowAptList] = useState(false);
+  const listRef = useRef<HTMLDivElement | null>(null);
 
   const [waterValue, setWaterValue] = useState('');
   const [waterSaved, setWaterSaved] = useState(false);
@@ -24,6 +26,17 @@ const ReadingForm: React.FC = () => {
   const [gasSaved, setGasSaved] = useState(false);
   const [prevGas, setPrevGas] = useState(0);
   const [gasId, setGasId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (listRef.current && !listRef.current.contains(event.target as Node)) {
+        setShowAptList(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     if (id) {
@@ -215,9 +228,50 @@ const ReadingForm: React.FC = () => {
           <button onClick={() => { if (currentIndex > 0) navigate(`/readings/${allApartments[currentIndex - 1].id}?date=${referenceDate.toISOString()}`, { replace: true }); }} disabled={currentIndex <= 0} className="size-10 rounded-full bg-slate-100 dark:bg-gray-800 text-primary disabled:opacity-30 flex items-center justify-center">
             <span className="material-symbols-outlined text-base font-bold">arrow_back</span>
           </button>
-          <div className="rounded-[26px] border border-slate-200 bg-white dark:bg-slate-800 px-6 py-4 text-center flex-1">
-            <p className="text-xs font-black uppercase tracking-[0.35em] text-slate-400 mb-0">APTO</p>
-            <p className="text-2xl font-black uppercase tracking-[0.4em] text-slate-900 dark:text-white leading-none">{apartment?.number || 'COND.'} / BL {apartment?.block || 'A'}</p>
+          <div ref={listRef} className="relative flex-1">
+            <button
+              type="button"
+              onClick={() => setShowAptList(prev => !prev)}
+              className="w-full rounded-[28px] border border-slate-200 bg-white px-6 py-4 text-left shadow-lg shadow-slate-200/30 transition hover:border-slate-300"
+            >
+              <p className="text-[9px] font-black uppercase tracking-[0.4em] text-slate-400 mb-1">APTO</p>
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-2xl font-black uppercase tracking-[0.36em] text-slate-900 leading-none">{apartment?.number || 'COND.'}</span>
+                <span className="text-sm font-black uppercase tracking-[0.28em] text-slate-500">BL {apartment?.block || 'A'}</span>
+                <span className="material-symbols-outlined text-xl text-slate-400">expand_more</span>
+              </div>
+            </button>
+
+            {showAptList && (
+              <div className="absolute inset-x-0 top-full mt-3 rounded-[30px] border border-slate-200 bg-white shadow-2xl z-40">
+                <div className="px-6 py-4 border-b border-slate-100">
+                  <p className="text-[10px] font-black uppercase tracking-[0.32em] text-slate-400">Selecione a unidade</p>
+                </div>
+                <div className="max-h-[320px] overflow-y-auto">
+                  {allApartments.map((apt) => (
+                    <button
+                      key={apt.id}
+                      type="button"
+                      onClick={() => {
+                        setShowAptList(false);
+                        navigate(`/readings/${apt.id}?date=${referenceDate.toISOString()}`);
+                      }}
+                      className={`w-full px-4 py-4 text-left border-b last:border-b-0 transition ${apt.id === apartment?.id ? 'bg-slate-100 text-[#7a1b3c]' : 'hover:bg-slate-50'}`}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-black uppercase tracking-[0.24em] text-slate-900 truncate">{apt.number || 'COND.'} / BL {apt.block || 'A'}</p>
+                          <p className="text-[10px] uppercase tracking-[0.28em] text-slate-400 truncate">{apt.resident_name || apt.residentName || 'Morador'}</p>
+                        </div>
+                        {apt.id === apartment?.id && (
+                          <span className="material-symbols-outlined text-slate-700">check</span>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           <button onClick={() => { if (currentIndex < allApartments.length - 1) navigate(`/readings/${allApartments[currentIndex + 1].id}?date=${referenceDate.toISOString()}`, { replace: true }); }} disabled={currentIndex === -1 || currentIndex >= allApartments.length - 1} className="size-10 rounded-full bg-slate-100 dark:bg-gray-800 text-primary disabled:opacity-30 flex items-center justify-center">
             <span className="material-symbols-outlined text-base font-bold">arrow_forward</span>
