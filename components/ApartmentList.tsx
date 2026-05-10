@@ -172,7 +172,7 @@ const ApartmentList: React.FC = () => {
             />
           </div>
 
-          <div className="grid grid-cols-4 gap-3 mt-4">
+          <div className="flex gap-3 mt-4 overflow-x-auto no-scrollbar pb-1">
             {[
               { key: 'todos', label: 'TODOS', icon: 'menu' },
               { key: 'pendentes', label: 'PENDENTES', icon: 'pending_actions' },
@@ -183,12 +183,12 @@ const ApartmentList: React.FC = () => {
                 key={tab.key}
                 type="button"
                 onClick={() => setFilterMode(tab.key as any)}
-                className={`w-full h-12 rounded-[24px] border px-3 text-[10px] font-black uppercase tracking-[0.22em] transition-all flex items-center justify-center gap-2 ${filterMode === tab.key ? 'bg-[#7a1b3c] border-[#7a1b3c] text-white shadow-lg shadow-[#7a1b3c]/20' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                className={`min-w-[8rem] flex-shrink-0 h-12 rounded-[24px] border px-3 text-[10px] font-black uppercase tracking-[0.22em] transition-all flex items-center justify-center gap-2 ${filterMode === tab.key ? 'bg-[#7a1b3c] border-[#7a1b3c] text-white shadow-lg shadow-[#7a1b3c]/20' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
               >
                 <span className={`inline-flex h-8 w-8 items-center justify-center rounded-full ${filterMode === tab.key ? 'bg-white/15 text-white' : 'bg-slate-100 text-slate-500'}`}>
                   <span className="material-symbols-outlined text-sm">{tab.icon}</span>
                 </span>
-                <span className="leading-none text-[10px]">{tab.label}</span>
+                <span className="leading-none text-[10px] whitespace-nowrap">{tab.label}</span>
               </button>
             ))}
           </div>
