@@ -166,12 +166,12 @@ const Dashboard: React.FC = () => {
   return (
     <div className="scroll-container flex-1 bg-background-light dark:bg-background-dark">
       <div className="pt-safe pb-32">
-        <header className="px-6 py-6 bg-white dark:bg-surface-dark border-b dark:border-gray-800 flex flex-col items-center shadow-sm">
+        <header className="px-5 py-6 bg-white dark:bg-surface-dark border-b dark:border-gray-800 flex flex-col items-center shadow-sm">
           <Logo />
-          <p className="text-[8px] font-black text-slate-300 uppercase tracking-[2px] mt-3">Monitoramento Geral</p>
+          <p className="text-xs font-black text-slate-400 uppercase tracking-[0.35em] mt-3">Monitoramento Geral</p>
         </header>
 
-        <div className="p-4 space-y-5">
+        <div className="p-5 space-y-5">
           {/* Debug Error Block */}
           {debugError && (
             <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-xl mb-4">
@@ -184,16 +184,16 @@ const Dashboard: React.FC = () => {
           )}
 
           {/* Month Picker Functional */}
-          <div className="flex items-center justify-between bg-white dark:bg-surface-dark px-4 py-3.5 rounded-3xl shadow-sm border dark:border-gray-800">
+          <div className="flex items-center justify-between bg-white dark:bg-surface-dark px-4 py-4 rounded-3xl shadow-sm border dark:border-gray-800">
             <button
               onClick={handlePrevMonth}
-              className="size-9 rounded-full bg-slate-50 dark:bg-gray-800 flex items-center justify-center text-slate-400 active:bg-slate-100 transition-colors"
+              className="size-10 rounded-full bg-slate-50 dark:bg-gray-800 flex items-center justify-center text-slate-400 active:bg-slate-100 transition-colors"
             >
               <span className="material-symbols-outlined text-lg">chevron_left</span>
             </button>
             <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary text-lg">calendar_month</span>
-              <span className="font-bold text-[11px] uppercase tracking-widest text-primary shrink-0">
+              <span className="material-symbols-outlined text-primary text-xl">calendar_month</span>
+              <span className="font-bold text-sm uppercase tracking-[0.18em] text-primary shrink-0">
                 {formattedMonth}
               </span>
             </div>
@@ -208,14 +208,14 @@ const Dashboard: React.FC = () => {
           {/* Gemini Insight Banner */}
           <div className="bg-primary/5 dark:bg-primary/10 p-5 rounded-[2.5rem] border border-primary/20 flex gap-4 relative overflow-hidden">
             <div className="absolute top-0 right-0 p-2 opacity-5 scale-150">
-              <span className="material-symbols-outlined text-5xl">auto_awesome</span>
+              <span className="material-symbols-outlined text-6xl">auto_awesome</span>
             </div>
-            <span className="material-symbols-outlined text-primary dark:text-primary animate-pulse flex-shrink-0">
+            <span className="material-symbols-outlined text-primary dark:text-primary animate-pulse flex-shrink-0 text-3xl">
               {loading ? 'sync' : 'auto_awesome'}
             </span>
             <div>
-              <p className="text-[8px] font-bold text-primary dark:text-primary uppercase tracking-[2px] mb-1">IA Insight</p>
-              <p className="text-xs font-semibold text-slate-700 dark:text-gray-300 leading-relaxed italic">
+              <p className="text-xs font-bold text-primary dark:text-primary uppercase tracking-[0.35em] mb-1">IA Insight</p>
+              <p className="text-sm font-semibold text-slate-700 dark:text-gray-300 leading-relaxed italic">
                 "{insight}"
               </p>
             </div>
@@ -223,20 +223,20 @@ const Dashboard: React.FC = () => {
 
           {/* Totals */}
           <div className="grid grid-cols-2 gap-3">
-            <div className="p-5 rounded-[2.5rem] bg-white dark:bg-surface-dark shadow-sm border border-slate-50 dark:border-gray-800">
+            <div className="p-6 rounded-[2.5rem] bg-white dark:bg-surface-dark shadow-sm border border-slate-50 dark:border-gray-800">
               <div className="flex items-center gap-2 mb-3">
                 <div className="size-8 rounded-xl bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center text-primary flex-shrink-0">
                   <span className="material-symbols-outlined text-lg fill-1">water_drop</span>
                 </div>
-                <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest truncate">Água</span>
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-[0.35em] truncate">Água</span>
               </div>
               <div className="flex items-baseline gap-0.5">
                 <span className="text-2xl font-bold tracking-tighter">
                   {summary.water.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
                 </span>
-                <span className="text-[8px] font-bold text-slate-400 uppercase">m³</span>
+                <span className="text-xs font-bold text-slate-400 uppercase">m³</span>
               </div>
-              <div className={`flex items-center gap-1 mt-2 font-bold text-[8px] uppercase ${summary.waterChange <= 0 ? 'text-green-500' : 'text-red-500'}`}>
+              <div className={`flex items-center gap-1 mt-2 font-bold text-xs uppercase ${summary.waterChange <= 0 ? 'text-green-500' : 'text-red-500'}`}>
                 <span className="material-symbols-outlined text-[10px]">
                   {summary.waterChange <= 0 ? 'trending_down' : 'trending_up'}
                 </span>
@@ -251,15 +251,15 @@ const Dashboard: React.FC = () => {
                 <div className="size-8 rounded-xl bg-orange-50 dark:bg-orange-900/30 flex items-center justify-center text-gas flex-shrink-0">
                   <span className="material-symbols-outlined text-lg fill-1">local_fire_department</span>
                 </div>
-                <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest truncate">Gás</span>
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-[0.35em] truncate">Gás</span>
               </div>
               <div className="flex items-baseline gap-0.5">
                 <span className="text-2xl font-bold tracking-tighter">
                   {summary.gas.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
                 </span>
-                <span className="text-[8px] font-bold text-slate-400 uppercase">m³</span>
+                <span className="text-xs font-bold text-slate-400 uppercase">m³</span>
               </div>
-              <div className={`flex items-center gap-1 mt-2 font-bold text-[8px] uppercase ${summary.gasChange <= 0 ? 'text-green-500' : 'text-red-500'}`}>
+              <div className={`flex items-center gap-1 mt-2 font-bold text-xs uppercase ${summary.gasChange <= 0 ? 'text-green-500' : 'text-red-500'}`}>
                 <span className="material-symbols-outlined text-[10px]">
                   {summary.gasChange <= 0 ? 'trending_down' : 'trending_up'}
                 </span>
@@ -272,14 +272,14 @@ const Dashboard: React.FC = () => {
 
           {/* Rankings Section */}
           <div className="space-y-4 pt-2">
-            <h3 className="text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-widest pl-2">Ranking de Consumo</h3>
+            <h3 className="text-sm font-bold text-slate-400 dark:text-gray-500 uppercase tracking-[0.35em] pl-2">Ranking de Consumo</h3>
 
             <div className="grid grid-cols-1 gap-4">
               {/* Water Ranking */}
               <div className="bg-white dark:bg-surface-dark p-6 rounded-[2.5rem] shadow-sm border border-slate-50 dark:border-gray-800">
                 <div className="flex items-center gap-2 mb-4">
-                  <span className="material-symbols-outlined text-primary text-sm fill-1">water_drop</span>
-                  <span className="text-[9px] font-bold text-slate-800 dark:text-gray-300 uppercase tracking-widest">Top 3 Água</span>
+                  <span className="material-symbols-outlined text-primary text-xl fill-1">water_drop</span>
+                  <span className="text-xs font-bold text-slate-800 dark:text-gray-300 uppercase tracking-[0.35em]">Top 3 Água</span>
                 </div>
                 <div className="space-y-3">
                   {rankings.water.length > 0 ? rankings.water.map((item, idx) => (
@@ -299,8 +299,8 @@ const Dashboard: React.FC = () => {
               {/* Gas Ranking */}
               <div className="bg-white dark:bg-surface-dark p-6 rounded-[2.5rem] shadow-sm border border-slate-50 dark:border-gray-800">
                 <div className="flex items-center gap-2 mb-4">
-                  <span className="material-symbols-outlined text-gas text-sm fill-1">local_fire_department</span>
-                  <span className="text-[9px] font-bold text-slate-800 dark:text-gray-300 uppercase tracking-widest">Top 3 Gás</span>
+                  <span className="material-symbols-outlined text-gas text-xl fill-1">local_fire_department</span>
+                  <span className="text-xs font-bold text-slate-800 dark:text-gray-300 uppercase tracking-[0.35em]">Top 3 Gás</span>
                 </div>
                 <div className="space-y-3">
                   {rankings.gas.length > 0 ? rankings.gas.map((item, idx) => (

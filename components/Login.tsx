@@ -52,7 +52,7 @@ const Login: React.FC = () => {
 
   return (
     <div className="flex-1 bg-slate-50 flex items-center justify-center p-4 sm:p-6 lg:bg-slate-100/50">
-      <div className="w-full max-w-sm bg-white rounded-[32px] sm:rounded-[48px] overflow-hidden shadow-[0_40px_80px_-15px_rgba(128,46,83,0.15)] flex flex-col border border-slate-100">
+      <div className="w-full max-w-md bg-white rounded-[32px] sm:rounded-[48px] overflow-hidden shadow-[0_40px_80px_-15px_rgba(128,46,83,0.15)] flex flex-col border border-slate-100">
         <div className="bg-white p-6 sm:p-10 pb-4 sm:pb-6 flex flex-col items-center border-b border-slate-50">
           <Logo />
           <div className="mt-6 sm:mt-8 text-center">

@@ -56,8 +56,8 @@ const Reports: React.FC = () => {
   const gasCount = readings.filter(r => r.type === 'gas').length;
 
   return (
-    <div className="pb-32 pt-safe flex-1 bg-white min-h-screen">
-      <div className="max-w-md mx-auto px-6 py-6">
+    <div className="pb-safe pt-safe flex-1 min-h-screen bg-background-light dark:bg-background-dark">
+      <div className="max-w-xl mx-auto px-4 py-6">
         <div className="flex items-center justify-between gap-3 mb-6">
           <button
             onClick={() => navigate('/readings')}
@@ -111,16 +111,9 @@ const Reports: React.FC = () => {
               <button
                 onClick={() => reportService.generateMonthlyPDF(readings, apartments, formattedMonth)}
                 disabled={loading || readings.length === 0}
-                className="w-full h-16 rounded-[24px] bg-[#7a1b3c] text-white font-black uppercase tracking-[0.35em] disabled:opacity-50"
+                className="w-full h-16 rounded-[26px] bg-[#7a1b3c] text-white font-black uppercase tracking-[0.35em] disabled:opacity-50"
               >
                 Baixar PDF
-              </button>
-              <button
-                onClick={() => reportService.generateMonthlyExcel(readings, apartments)}
-                disabled={loading || readings.length === 0}
-                className="w-full h-16 rounded-[24px] bg-slate-900 text-white font-black uppercase tracking-[0.35em] disabled:opacity-50"
-              >
-                Baixar Excel
               </button>
               {readings.length === 0 && (
                 <p className="text-[10px] text-slate-500 uppercase tracking-[0.35em] text-center">Nenhuma leitura encontrada para este mês.</p>

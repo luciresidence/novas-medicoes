@@ -222,17 +222,17 @@ const ReadingForm: React.FC = () => {
   };
 
   return (
-    <div className="pb-32 pt-safe flex-1 flex flex-col bg-slate-50 dark:bg-background-dark transition-colors duration-200">
-      <header className="sticky top-0 z-30 bg-white dark:bg-surface-dark p-4 border-b dark:border-gray-800 shadow-sm">
+    <div className="pb-safe pt-safe flex-1 flex flex-col min-h-screen bg-background-light dark:bg-background-dark transition-colors duration-200">
+      <header className="sticky top-0 z-30 bg-white dark:bg-surface-dark p-5 md:p-6 border-b dark:border-gray-800 shadow-sm">
         <div className="flex items-center justify-between gap-4 mb-6">
-          <button onClick={() => { if (currentIndex > 0) navigate(`/readings/${allApartments[currentIndex - 1].id}?date=${referenceDate.toISOString()}`, { replace: true }); }} disabled={currentIndex <= 0} className="size-10 rounded-full bg-slate-100 dark:bg-gray-800 text-primary disabled:opacity-30 flex items-center justify-center">
+          <button onClick={() => { if (currentIndex > 0) navigate(`/readings/${allApartments[currentIndex - 1].id}?date=${referenceDate.toISOString()}`, { replace: true }); }} disabled={currentIndex <= 0} className="size-10 h-14 rounded-full bg-slate-100 dark:bg-gray-800 text-primary disabled:opacity-30 flex items-center justify-center">
             <span className="material-symbols-outlined text-base font-bold">arrow_back</span>
           </button>
           <div ref={listRef} className="relative flex-1">
             <button
               type="button"
               onClick={() => setShowAptList(prev => !prev)}
-              className="w-full rounded-[28px] border border-slate-200 bg-white px-6 py-4 text-left shadow-lg shadow-slate-200/30 transition hover:border-slate-300"
+              className="w-full rounded-[28px] border border-slate-200 bg-white px-6 py-4 min-h-[88px] text-left shadow-lg shadow-slate-200/30 transition hover:border-slate-300"
             >
               <p className="text-[9px] font-black uppercase tracking-[0.4em] text-slate-400 mb-1">APTO</p>
               <div className="flex items-center justify-center gap-2">
@@ -273,7 +273,7 @@ const ReadingForm: React.FC = () => {
               </div>
             )}
           </div>
-          <button onClick={() => { if (currentIndex < allApartments.length - 1) navigate(`/readings/${allApartments[currentIndex + 1].id}?date=${referenceDate.toISOString()}`, { replace: true }); }} disabled={currentIndex === -1 || currentIndex >= allApartments.length - 1} className="size-10 rounded-full bg-slate-100 dark:bg-gray-800 text-primary disabled:opacity-30 flex items-center justify-center">
+          <button onClick={() => { if (currentIndex < allApartments.length - 1) navigate(`/readings/${allApartments[currentIndex + 1].id}?date=${referenceDate.toISOString()}`, { replace: true }); }} disabled={currentIndex === -1 || currentIndex >= allApartments.length - 1} className="size-10 h-14 rounded-full bg-slate-100 dark:bg-gray-800 text-primary disabled:opacity-30 flex items-center justify-center">
             <span className="material-symbols-outlined text-base font-bold">arrow_forward</span>
           </button>
         </div>

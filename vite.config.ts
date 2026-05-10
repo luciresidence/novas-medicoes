@@ -15,6 +15,18 @@ export default defineConfig(({ mode }) => {
         alias: {
           '@': path.resolve(__dirname, '.'),
         }
+      },
+      build: {
+        chunkSizeWarningLimit: 800,
+        rollupOptions: {
+          output: {
+            manualChunks(id) {
+              if (id.includes('node_modules/firebase')) {
+                return 'firebase-vendor';
+              }
+            }
+          }
+        }
       }
     };
 });

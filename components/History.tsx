@@ -64,8 +64,8 @@ const History: React.FC<HistoryProps> = ({ onImageClick }) => {
   }
 
   return (
-    <div className="pb-24 pt-safe flex-1 flex flex-col bg-slate-50 dark:bg-background-dark">
-      <header className="px-5 py-8 bg-white dark:bg-surface-dark border-b dark:border-gray-800 sticky top-0 z-20 shadow-sm">
+    <div className="pb-safe pt-safe flex-1 flex flex-col min-h-screen bg-background-light dark:bg-background-dark">
+      <header className="px-4 py-6 md:px-5 md:py-8 bg-white dark:bg-surface-dark border-b dark:border-gray-800 sticky top-0 z-20 shadow-sm">
         <h1 className="text-2xl font-bold uppercase tracking-tighter italic text-primary">Histórico</h1>
         <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[4px] mt-1">Registros de Consumo</p>
       </header>
@@ -124,9 +124,9 @@ const History: React.FC<HistoryProps> = ({ onImageClick }) => {
         )}
       </div>
 
-      <div className="p-10 text-center opacity-40">
-        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[4px] leading-relaxed">
-          Relatórios detalhados com PDF e Excel estão disponíveis na aba "Medições"
+      <div className="p-8 text-center opacity-60">
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[4px] leading-relaxed">
+          Relatórios detalhados em PDF estão disponíveis na aba "Medições"
         </p>
       </div>
     </div>

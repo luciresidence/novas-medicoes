@@ -1,6 +1,5 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import * as XLSX from 'xlsx';
 
 export const reportService = {
     // Generates the monthly report PDF with Water and Gas pages conditionally
@@ -156,92 +155,6 @@ export const reportService = {
         }
 
         doc.save(`relatorio_mensal_${new Date().getTime()}.pdf`);
-    },
-
-    generateMonthlyExcel: (data: any[], apartments: any[]) => {
-        // Helper to sort by unit number
-        const sortByUnit = (a: any, b: any) => {
-            const apA = apartments.find(ap => ap.id === a.apartment_id);
-            const apB = apartments.find(ap => ap.id === b.apartment_id);
-            if (!apA || !apB) return 0;
-
-            const nA = parseInt(apA.number);
-            const nB = parseInt(apB.number);
-            const isNumA = !isNaN(nA);
-            const isNumB = !isNaN(nB);
-
-            // Unidades com texto (ex: COND. AB) sempre primeiro
-            if (!isNumA && isNumB) return -1;
-            if (isNumA && !isNumB) return 1;
-
-            if (!isNumA && !isNumB) {
-                return apA.number.localeCompare(apB.number);
-            }
-
-            // Unidades numéricas: ordenar por bloco (A antes de B)
-            if (apA.block !== apB.block) {
-                return apA.block.localeCompare(apB.block);
-            }
-
-            // Mesmo bloco: ordenar por número
-            return nA - nB;
-        };
-
-        const waterReadings = data.filter(r => r.type === 'water').sort(sortByUnit);
-        const gasReadings = data.filter(r => r.type === 'gas').sort(sortByUnit);
-
-        const formatData = (readings: any[], precision: number) => {
-            return readings.map(r => {
-                const ap = apartments.find(a => a.id === r.apartment_id);
-                const prev = Number(r.previous_value) || 0;
-                const curr = Number(r.current_value) || 0;
-                const consumption = curr - prev;
-
-                // Formato exigido: UNIDADE | MORADOR | ANTERIOR | ATUAL | CONSUMO
-                // Unidade deve ser "COND. AB" ou "001 A"
-                const unitLabel = ap ? (isNaN(parseInt(ap.number)) ? ap.number : `${ap.number} ${ap.block}`) : '-';
-
-                return {
-                    'UNIDADE': unitLabel,
-                    'MORADOR': ap?.residentName || '-',
-                    'ANTERIOR': prev.toFixed(precision),
-                    'ATUAL': curr.toFixed(precision),
-                    'CONSUMO': consumption.toFixed(precision).replace('.', ',') // Excel BR usa vírgula
-                };
-            });
-        };
-
-        // Obter mês/ano do primeiro registro para o título, caso venha vazio, ou usar placeholder
-        let titleSuffix = "";
-        if (data.length > 0) {
-            const d = new Date(data[0].date);
-            const month = d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-            titleSuffix = month.charAt(0).toUpperCase() + month.slice(1);
-        }
-        const headerText = `Condomínio Luci Berkembrock referente ao mês ${titleSuffix}`;
-
-        const wb = XLSX.utils.book_new();
-
-        // Water Sheet
-        // Create sheet with header at A1
-        const wsWater = XLSX.utils.aoa_to_sheet([[headerText]]);
-        // Add data starting at A3
-        XLSX.utils.sheet_add_json(wsWater, formatData(waterReadings, 2), { origin: "A3", skipHeader: false });
-
-        wsWater['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }];
-        // Ajustar largura das colunas
-        wsWater['!cols'] = [{ wch: 10 }, { wch: 30 }, { wch: 10 }, { wch: 10 }, { wch: 10 }];
-        XLSX.utils.book_append_sheet(wb, wsWater, "Consumo Água");
-
-        // Gas Sheet
-        const wsGas = XLSX.utils.aoa_to_sheet([[headerText]]);
-        XLSX.utils.sheet_add_json(wsGas, formatData(gasReadings, 3), { origin: "A3", skipHeader: false });
-
-        wsGas['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }];
-        wsGas['!cols'] = [{ wch: 10 }, { wch: 30 }, { wch: 10 }, { wch: 10 }, { wch: 10 }];
-        XLSX.utils.book_append_sheet(wb, wsGas, "Consumo Gás");
-
-        XLSX.writeFile(wb, `relatorio_consumo_${new Date().getTime()}.xlsx`);
     },
 
     generateIndividualPDF: (apartment: any, readings: any[], startDate?: string, endDate?: string) => {

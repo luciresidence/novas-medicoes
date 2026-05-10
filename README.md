@@ -10,10 +10,30 @@ View your app in AI Studio: https://ai.studio/apps/drive/1n5wBV9ElipWzXxe5jJSEBG
 
 ## Run Locally
 
-**Prerequisites:**  Node.js
+**Prerequisites:** Node.js
 
-
-1. Install dependencies:
+1. Copy `.env.example` to `.env` and fill in your Firebase values.
+2. Install dependencies:
    `npm install`
-2. Run the app:
+3. Run the app:
    `npm run dev`
+
+## Environment
+
+The app expects the following environment variables in a `.env` file:
+
+```env
+VITE_FIREBASE_API_KEY=
+VITE_FIREBASE_AUTH_DOMAIN=
+VITE_FIREBASE_PROJECT_ID=
+VITE_FIREBASE_STORAGE_BUCKET=
+VITE_FIREBASE_MESSAGING_SENDER_ID=
+VITE_FIREBASE_APP_ID=
+```
+
+## Useful scripts
+
+- `npm run dev` — inicia o servidor de desenvolvimento
+- `npm run build` — gera o build de produção
+- `npm run preview` — pré-visualiza o build de produção
+- `npm run audit` — verifica vulnerabilidades do npm

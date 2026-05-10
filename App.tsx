@@ -1,22 +1,23 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from './lib/firebaseConfig';
-import Dashboard from './components/Dashboard';
-import ApartmentList from './components/ApartmentList';
-import ReadingForm from './components/ReadingForm';
-import ResidentDetails from './components/ResidentDetails';
-import History from './components/History';
-import UnitList from './components/UnitList';
-import UnitRegistration from './components/UnitRegistration';
-import Settings from './components/Settings';
 import Navigation from './components/Navigation';
 import ImagePreview from './components/ImagePreview';
-import Login from './components/Login';
-import ResidentRegistration from './components/ResidentRegistration';
-import RegistrationManager from './components/RegistrationManager';
-import Reports from './components/Reports';
+
+const Dashboard = lazy(() => import('./components/Dashboard'));
+const ApartmentList = lazy(() => import('./components/ApartmentList'));
+const ReadingForm = lazy(() => import('./components/ReadingForm'));
+const ResidentDetails = lazy(() => import('./components/ResidentDetails'));
+const History = lazy(() => import('./components/History'));
+const UnitList = lazy(() => import('./components/UnitList'));
+const UnitRegistration = lazy(() => import('./components/UnitRegistration'));
+const Settings = lazy(() => import('./components/Settings'));
+const Login = lazy(() => import('./components/Login'));
+const ResidentRegistration = lazy(() => import('./components/ResidentRegistration'));
+const RegistrationManager = lazy(() => import('./components/RegistrationManager'));
+const Reports = lazy(() => import('./components/Reports'));
 
 const App: React.FC = () => {
   const [darkMode, setDarkMode] = useState(false);
@@ -62,25 +63,27 @@ const App: React.FC = () => {
   const hideNav = location.pathname === '/login' || location.pathname === '/cadastro';
 
   return (
-    <div className="h-[100dvh] w-full bg-background-light dark:bg-background-dark overflow-hidden flex flex-col">
+    <div className="min-h-screen w-full bg-background-light dark:bg-background-dark overflow-hidden flex flex-col">
       <div className="flex-1 overflow-y-auto relative no-scrollbar flex flex-col">
         <div className="mx-auto w-full max-w-[500px] flex-1 flex flex-col bg-slate-50 dark:bg-background-dark shadow-2xl shadow-black/5 min-[501px]:border-x dark:border-gray-800">
-          <Routes>
-            <Route path="/" element={<Navigate to="/login" replace />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/cadastro" element={<ResidentRegistration />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/readings" element={<ApartmentList />} />
-            <Route path="/readings/:id" element={<ReadingForm />} />
-            <Route path="/reports" element={<Reports />} />
-            <Route path="/history" element={<History onImageClick={setPreviewImage} />} />
-            <Route path="/units" element={<UnitList />} />
-            <Route path="/units/new" element={<UnitRegistration />} />
-            <Route path="/units/:id/edit" element={<UnitRegistration />} />
-            <Route path="/requests" element={<RegistrationManager />} />
-            <Route path="/residents/:id" element={<ResidentDetails />} />
-            <Route path="/settings" element={<Settings toggleDarkMode={toggleDarkMode} isDarkMode={darkMode} onLogout={handleLogout} />} />
-          </Routes>
+          <Suspense fallback={<div className="p-6 text-center">Carregando...</div>}>
+            <Routes>
+              <Route path="/" element={<Navigate to="/login" replace />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/cadastro" element={<ResidentRegistration />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/readings" element={<ApartmentList />} />
+              <Route path="/readings/:id" element={<ReadingForm />} />
+              <Route path="/reports" element={<Reports />} />
+              <Route path="/history" element={<History onImageClick={setPreviewImage} />} />
+              <Route path="/units" element={<UnitList />} />
+              <Route path="/units/new" element={<UnitRegistration />} />
+              <Route path="/units/:id/edit" element={<UnitRegistration />} />
+              <Route path="/requests" element={<RegistrationManager />} />
+              <Route path="/residents/:id" element={<ResidentDetails />} />
+              <Route path="/settings" element={<Settings toggleDarkMode={toggleDarkMode} isDarkMode={darkMode} onLogout={handleLogout} />} />
+            </Routes>
+          </Suspense>
         </div>
       </div>
 
