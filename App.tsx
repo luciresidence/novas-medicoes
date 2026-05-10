@@ -63,7 +63,7 @@ const App: React.FC = () => {
   const hideNav = location.pathname === '/login' || location.pathname === '/cadastro';
 
   return (
-    <div className="min-h-screen w-full bg-background-light dark:bg-background-dark overflow-hidden flex flex-col">
+    <div className="min-h-screen w-full bg-background-light dark:bg-background-dark overflow-x-hidden flex flex-col">
       <div className="flex-1 overflow-y-auto relative no-scrollbar flex flex-col">
         <div className="mx-auto w-full max-w-[500px] flex-1 flex flex-col bg-slate-50 dark:bg-background-dark shadow-2xl shadow-black/5 min-[501px]:border-x dark:border-gray-800">
           <Suspense fallback={<div className="p-6 text-center">Carregando...</div>}>
