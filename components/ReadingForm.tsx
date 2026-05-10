@@ -26,6 +26,7 @@ const ReadingForm: React.FC = () => {
 
   const [gasValue, setGasValue] = useState('');
   const [gasSaved, setGasSaved] = useState(false);
+  const [gasCollapsed, setGasCollapsed] = useState(false);
   const [prevGas, setPrevGas] = useState(0);
   const [gasId, setGasId] = useState<string | null>(null);
 
@@ -115,10 +116,12 @@ const ReadingForm: React.FC = () => {
           if (gas) {
             setGasValue(String(gas.current_value || ''));
             setGasSaved(true);
+            setGasCollapsed(true);
             setGasId(gas.id);
           } else {
             setGasValue('');
             setGasSaved(false);
+            setGasCollapsed(false);
             setGasId(null);
           }
         }
@@ -208,6 +211,11 @@ const ReadingForm: React.FC = () => {
           setGasId(docRef.id);
         }
         setGasSaved(true);
+        setGasCollapsed(true);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        setTimeout(() => {
+          setShowAptList(true);
+        }, 300);
       } catch (e: any) {
         alert('Erro ao salvar: ' + e.message);
       }
@@ -372,34 +380,52 @@ const ReadingForm: React.FC = () => {
               )}
             </div>
 
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3 px-1">
-                <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Leitura Atual (m³)</label>
+            {gasCollapsed && gasSaved ? (
+              <div className="mt-6 flex flex-col gap-3">
+                <div className="rounded-[24px] border border-slate-200 bg-slate-50 dark:bg-slate-900 p-4 flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-slate-500">Gás LIDO</p>
+                    <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">{parseFloat(gasValue).toFixed(3)} m³</p>
+                    <p className="text-xs text-slate-500 mt-1">Consumo: {(parseFloat(gasValue) - prevGas).toFixed(3)} m³</p>
+                  </div>
+                  <button onClick={() => setGasCollapsed(false)} className="h-12 rounded-[20px] bg-white border border-slate-200 px-4 text-[10px] font-black uppercase tracking-[0.35em] text-slate-700 shadow-sm hover:bg-slate-100">
+                    Editar
+                  </button>
                 </div>
-                <div className="text-right">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Leitura Anterior</span>
-                  <div className="text-xs font-black text-orange-600 italic">{prevGas.toFixed(3)} m³</div>
+                <div className="rounded-[24px] bg-green-50 dark:bg-green-900/10 p-4 text-sm font-semibold text-green-700 dark:text-green-200">
+                  Leituras desta unidade concluídas! Você pode selecionar a próxima unidade.
                 </div>
               </div>
-              <div className="grid grid-cols-[1fr_auto] gap-3">
-                <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 inline-block">Leitura Atual</label>
-                  <input type="number" step="0.001" value={gasValue} onChange={(e) => { setGasValue(e.target.value); setGasSaved(false); }} placeholder="0.000" className="w-full h-20 bg-slate-50 dark:bg-gray-800 border-none rounded-[24px] text-3xl font-black px-4 text-center dark:text-white" />
-                </div>
-                <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 inline-block">Consumo</label>
-                  <div className="w-full h-20 bg-orange-50 dark:bg-orange-900/10 rounded-[24px] flex items-center justify-center border-2 border-orange-100">
-                    <span className="text-xl font-black text-orange-600">
-                      {gasValue ? (parseFloat(gasValue) - prevGas).toFixed(3) : '--'}
-                    </span>
+            ) : (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3 px-1">
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Leitura Atual (m³)</label>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Leitura Anterior</span>
+                    <div className="text-xs font-black text-orange-600 italic">{prevGas.toFixed(3)} m³</div>
                   </div>
                 </div>
+                <div className="grid grid-cols-[1fr_auto] gap-3">
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 inline-block">Leitura Atual</label>
+                    <input type="number" step="0.001" value={gasValue} onChange={(e) => { setGasValue(e.target.value); setGasSaved(false); setGasCollapsed(false); }} placeholder="0.000" className="w-full h-20 bg-slate-50 dark:bg-gray-800 border-none rounded-[24px] text-3xl font-black px-4 text-center dark:text-white" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 inline-block">Consumo</label>
+                    <div className="w-full h-20 bg-orange-50 dark:bg-orange-900/10 rounded-[24px] flex items-center justify-center border-2 border-orange-100">
+                      <span className="text-xl font-black text-orange-600">
+                        {gasValue ? (parseFloat(gasValue) - prevGas).toFixed(3) : '--'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <button onClick={handleSaveGas} disabled={gasValue === ''} className={`w-full h-16 rounded-[24px] font-black uppercase tracking-[3px] text-xs transition-all ${gasSaved ? 'bg-green-500 text-white' : 'bg-orange-600/20 text-orange-600'}`}>
+                  {gasSaved ? 'Salvo com Sucesso' : 'Salvar Gás'}
+                </button>
               </div>
-              <button onClick={handleSaveGas} disabled={gasValue === ''} className={`w-full h-16 rounded-[24px] font-black uppercase tracking-[3px] text-xs transition-all ${gasSaved ? 'bg-green-500 text-white' : 'bg-orange-600/20 text-orange-600'}`}>
-                {gasSaved ? 'Salvo com Sucesso' : 'Salvar Gás'}
-              </button>
-            </div>
+            )}
           </div>
         </section>
 
