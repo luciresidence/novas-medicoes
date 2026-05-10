@@ -16,9 +16,11 @@ const ReadingForm: React.FC = () => {
   const [currentIndex, setCurrentIndex] = useState(-1);
   const [showAptList, setShowAptList] = useState(false);
   const listRef = useRef<HTMLDivElement | null>(null);
+  const gasSectionRef = useRef<HTMLDivElement | null>(null);
 
   const [waterValue, setWaterValue] = useState('');
   const [waterSaved, setWaterSaved] = useState(false);
+  const [waterCollapsed, setWaterCollapsed] = useState(false);
   const [prevWater, setPrevWater] = useState(0);
   const [waterId, setWaterId] = useState<string | null>(null);
 
@@ -100,10 +102,12 @@ const ReadingForm: React.FC = () => {
           if (water) {
             setWaterValue(String(water.current_value || ''));
             setWaterSaved(true);
+            setWaterCollapsed(true);
             setWaterId(water.id);
           } else {
             setWaterValue('');
             setWaterSaved(false);
+            setWaterCollapsed(false);
             setWaterId(null);
           }
 
@@ -163,6 +167,8 @@ const ReadingForm: React.FC = () => {
           setWaterId(docRef.id);
         }
         setWaterSaved(true);
+        setWaterCollapsed(true);
+        gasSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       } catch (e: any) {
         alert('Erro ao salvar: ' + e.message);
       }
@@ -286,7 +292,7 @@ const ReadingForm: React.FC = () => {
 
       <main className="p-5 space-y-6">
         <section className={`transition-all duration-500 ${waterSaved ? 'opacity-80 scale-[0.98]' : ''}`}>
-          <div className="bg-white dark:bg-surface-dark rounded-[40px] p-7 shadow-sm border border-white dark:border-gray-800 space-y-6">
+          <div className="bg-white dark:bg-surface-dark rounded-[40px] p-7 shadow-sm border border-white dark:border-gray-800">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="size-12 rounded-2xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-600">
@@ -301,38 +307,56 @@ const ReadingForm: React.FC = () => {
               )}
             </div>
 
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3 px-1">
-                <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Leitura Atual (m³)</label>
+            {waterCollapsed && waterSaved ? (
+              <div className="mt-6 flex flex-col gap-3">
+                <div className="rounded-[24px] border border-slate-200 bg-slate-50 dark:bg-slate-900 p-4 flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-slate-500">Água LIDO</p>
+                    <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">{parseFloat(waterValue).toFixed(2)} m³</p>
+                    <p className="text-xs text-slate-500 mt-1">Consumo: {(parseFloat(waterValue) - prevWater).toFixed(2)} m³</p>
+                  </div>
+                  <button onClick={() => setWaterCollapsed(false)} className="h-12 rounded-[20px] bg-white border border-slate-200 px-4 text-[10px] font-black uppercase tracking-[0.35em] text-slate-700 shadow-sm hover:bg-slate-100">
+                    Editar
+                  </button>
                 </div>
-                <div className="text-right">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Leitura Anterior</span>
-                  <div className="text-xs font-black text-primary italic">{prevWater.toFixed(2)} m³</div>
+                <div className="rounded-[24px] bg-blue-50 dark:bg-blue-900/10 p-4 text-sm font-semibold text-blue-700 dark:text-blue-200">
+                  Agora você pode lançar a medição de gás logo abaixo.
                 </div>
               </div>
-              <div className="grid grid-cols-[1fr_auto] gap-3">
-                <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 inline-block">Leitura Atual</label>
-                  <input type="number" step="0.01" value={waterValue} onChange={(e) => { setWaterValue(e.target.value); setWaterSaved(false); }} placeholder="0.00" className="w-full h-20 bg-slate-50 dark:bg-gray-800 border-none rounded-[24px] text-3xl font-black px-4 text-center dark:text-white" />
-                </div>
-                <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 inline-block">Consumo</label>
-                  <div className="w-full h-20 bg-blue-50 dark:bg-blue-900/10 rounded-[24px] flex items-center justify-center border-2 border-blue-100">
-                    <span className="text-xl font-black text-blue-600">
-                      {waterValue ? (parseFloat(waterValue) - prevWater).toFixed(2) : '--'}
-                    </span>
+            ) : (
+              <div className="space-y-4 mt-6">
+                <div className="grid grid-cols-2 gap-3 px-1">
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Leitura Atual (m³)</label>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Leitura Anterior</span>
+                    <div className="text-xs font-black text-primary italic">{prevWater.toFixed(2)} m³</div>
                   </div>
                 </div>
+                <div className="grid grid-cols-[1fr_auto] gap-3">
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 inline-block">Leitura Atual</label>
+                    <input type="number" step="0.01" value={waterValue} onChange={(e) => { setWaterValue(e.target.value); setWaterSaved(false); setWaterCollapsed(false); }} placeholder="0.00" className="w-full h-20 bg-slate-50 dark:bg-gray-800 border-none rounded-[24px] text-3xl font-black px-4 text-center dark:text-white" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 inline-block">Consumo</label>
+                    <div className="w-full h-20 bg-blue-50 dark:bg-blue-900/10 rounded-[24px] flex items-center justify-center border-2 border-blue-100">
+                      <span className="text-xl font-black text-blue-600">
+                        {waterValue ? (parseFloat(waterValue) - prevWater).toFixed(2) : '--'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <button onClick={handleSaveWater} disabled={waterValue === ''} className={`w-full h-16 rounded-[24px] font-black uppercase tracking-[3px] text-xs transition-all ${waterSaved ? 'bg-green-500 text-white' : 'bg-primary/20 text-primary'}`}>
+                  {waterSaved ? 'Salvo com Sucesso' : 'Salvar Água'}
+                </button>
               </div>
-              <button onClick={handleSaveWater} disabled={waterValue === ''} className={`w-full h-16 rounded-[24px] font-black uppercase tracking-[3px] text-xs transition-all ${waterSaved ? 'bg-green-500 text-white' : 'bg-primary/20 text-primary'}`}>
-                {waterSaved ? 'Salvo com Sucesso' : 'Salvar Água'}
-              </button>
-            </div>
+            )}
           </div>
         </section>
 
-        <section className={`transition-all duration-500 ${gasSaved ? 'opacity-80 scale-[0.98]' : ''}`}>
+        <section ref={gasSectionRef} className={`transition-all duration-500 ${gasSaved ? 'opacity-80 scale-[0.98]' : ''}`}>
           <div className="bg-white dark:bg-surface-dark rounded-[40px] p-7 shadow-sm border border-white dark:border-gray-800 space-y-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
