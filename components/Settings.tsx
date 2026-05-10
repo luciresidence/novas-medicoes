@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { storage } from '../data';
+import { db } from '../lib/firebaseConfig';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 interface SettingsProps {
   toggleDarkMode: () => void;
@@ -26,15 +27,37 @@ const Settings: React.FC<SettingsProps> = ({ toggleDarkMode, isDarkMode, onLogou
   const [editUser, setEditUser] = useState(user);
 
   useEffect(() => {
-    const storedProfile = storage.getUserProfile ? storage.getUserProfile() : null;
-    const defaultData = {
-      name: storedProfile?.name || 'Administrador',
-      role: storedProfile?.role || 'Administrador',
-      condo: storedProfile?.condo || 'Luci Berkembrock',
-      avatarUrl: storedProfile?.avatarUrl || ''
+    const fetchProfile = async () => {
+      try {
+        const docRef = doc(db, 'settings', 'profile');
+        const docSnap = await getDoc(docRef);
+        
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          const profileData = {
+            name: data.name || 'Administrador',
+            role: data.role || 'Administrador',
+            condo: data.condo || 'Luci Berkembrock',
+            avatarUrl: data.avatarUrl || ''
+          };
+          setUser(profileData);
+          setEditUser(profileData);
+        } else {
+          const defaultData = {
+            name: 'Administrador',
+            role: 'Administrador',
+            condo: 'Luci Berkembrock',
+            avatarUrl: ''
+          };
+          setUser(defaultData);
+          setEditUser(defaultData);
+        }
+      } catch (err) {
+        console.error("Erro ao carregar perfil:", err);
+      }
     };
-    setUser(defaultData);
-    setEditUser(defaultData);
+    
+    fetchProfile();
   }, []);
 
   // Password State
@@ -50,7 +73,8 @@ const Settings: React.FC<SettingsProps> = ({ toggleDarkMode, isDarkMode, onLogou
     e.preventDefault();
     try {
       setUser(editUser);
-      storage.saveUserProfile(editUser);
+      const docRef = doc(db, 'settings', 'profile');
+      await setDoc(docRef, editUser, { merge: true });
       showMessage('Perfil atualizado com sucesso!');
       setTimeout(() => setView('main'), 1000);
     } catch (err: any) {
@@ -78,17 +102,44 @@ const Settings: React.FC<SettingsProps> = ({ toggleDarkMode, isDarkMode, onLogou
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        const newAvatar = reader.result as string;
-        const newUser = { ...user, avatarUrl: newAvatar };
+        const img = new Image();
+        img.onload = async () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 400;
+          const MAX_HEIGHT = 400;
+          let width = img.width;
+          let height = img.height;
 
-        try {
-          storage.saveUserProfile(newUser);
-          setUser(newUser);
-          setEditUser(newUser);
-          showMessage('Foto atualizada!');
-        } catch (err: any) {
-          showMessage('Erro ao salvar foto', 'error');
-        }
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          
+          const newAvatar = canvas.toDataURL('image/jpeg', 0.8);
+          const newUser = { ...user, avatarUrl: newAvatar };
+
+          try {
+            await setDoc(doc(db, 'settings', 'profile'), newUser, { merge: true });
+            setUser(newUser);
+            setEditUser(newUser);
+            showMessage('Foto atualizada!');
+          } catch (err: any) {
+            showMessage('Erro ao salvar foto', 'error');
+          }
+        };
+        img.src = reader.result as string;
       };
       reader.readAsDataURL(file);
     }
