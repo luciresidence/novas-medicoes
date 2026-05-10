@@ -13,6 +13,7 @@ const ReadingForm: React.FC = () => {
 
   const [apartment, setApartment] = useState<Apartment | null>(null);
   const [allApartments, setAllApartments] = useState<any[]>([]);
+  const [allMonthReadings, setAllMonthReadings] = useState<any[]>([]);
   const [currentIndex, setCurrentIndex] = useState(-1);
   const [showAptList, setShowAptList] = useState(false);
   const listRef = useRef<HTMLDivElement | null>(null);
@@ -86,17 +87,16 @@ const ReadingForm: React.FC = () => {
         const startOfMonth = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), 1, 0, 0, 0);
         const endOfMonth = new Date(referenceDate.getFullYear(), referenceDate.getMonth() + 1, 0, 23, 59, 59);
 
-        const qReads = query(
+        const allReadsQuery = query(
           collection(db, 'readings'),
-          where('apartment_id', '==', id)
+          where('date', '>=', startOfMonth.toISOString().split('T')[0]),
+          where('date', '<=', endOfMonth.toISOString().split('T')[0] + 'T23:59:59')
         );
-        const querySnapReads = await getDocs(qReads);
-        const reads = querySnapReads.docs
-          .map(doc => ({ id: doc.id, ...(doc.data() as any) }))
-          .filter((r: any) =>
-            r.date >= startOfMonth.toISOString().split('T')[0] &&
-            r.date <= endOfMonth.toISOString().split('T')[0] + 'T23:59:59'
-          );
+        const allReadsSnap = await getDocs(allReadsQuery);
+        const allReadsData = allReadsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
+        setAllMonthReadings(allReadsData);
+
+        const reads = allReadsData.filter((r: any) => r.apartment_id === id);
 
         if (reads.length > 0) {
           const water = reads.find(r => r.type === 'water');
@@ -171,7 +171,6 @@ const ReadingForm: React.FC = () => {
         }
         setWaterSaved(true);
         setWaterCollapsed(true);
-        gasSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       } catch (e: any) {
         alert('Erro ao salvar: ' + e.message);
       }
@@ -212,10 +211,6 @@ const ReadingForm: React.FC = () => {
         }
         setGasSaved(true);
         setGasCollapsed(true);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        setTimeout(() => {
-          setShowAptList(true);
-        }, 300);
       } catch (e: any) {
         alert('Erro ao salvar: ' + e.message);
       }
@@ -257,31 +252,62 @@ const ReadingForm: React.FC = () => {
             </button>
 
             {showAptList && (
-              <div className="absolute inset-x-0 top-full mt-3 rounded-[30px] border border-slate-200 bg-white shadow-2xl z-40">
-                <div className="px-6 py-4 border-b border-slate-100">
-                  <p className="text-[10px] font-black uppercase tracking-[0.32em] text-slate-400">Selecione a unidade</p>
+              <div className="fixed inset-0 bg-slate-50 dark:bg-background-dark z-[100] overflow-y-auto pb-safe">
+                <div className="sticky top-0 bg-white/80 dark:bg-surface-dark/80 backdrop-blur-md px-6 py-4 border-b border-slate-200 dark:border-gray-800 flex items-center justify-between z-10">
+                  <div>
+                    <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">Unidades</h2>
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Selecione para medir</p>
+                  </div>
+                  <button onClick={() => setShowAptList(false)} className="size-10 bg-slate-100 dark:bg-gray-800 rounded-full flex items-center justify-center text-slate-500">
+                    <span className="material-symbols-outlined font-bold">close</span>
+                  </button>
                 </div>
-                <div className="max-h-[320px] overflow-y-auto">
-                  {allApartments.map((apt) => (
-                    <button
-                      key={apt.id}
-                      type="button"
-                      onClick={() => {
-                        setShowAptList(false);
-                        navigate(`/readings/${apt.id}?date=${referenceDate.toISOString()}`);
-                      }}
-                      className={`w-full px-4 py-4 text-left border-b last:border-b-0 transition ${apt.id === apartment?.id ? 'bg-slate-100 text-[#7a1b3c]' : 'hover:bg-slate-50'}`}
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-sm font-black uppercase tracking-[0.24em] text-slate-900 truncate">{apt.number || 'COND.'} / BL {apt.block || 'A'}</p>
-                          <p className="text-[10px] uppercase tracking-[0.28em] text-slate-400 truncate">{apt.resident_name || apt.residentName || 'Morador'}</p>
-                        </div>
-                        {apt.id === apartment?.id && (
-                          <span className="material-symbols-outlined text-slate-700">check</span>
-                        )}
+                <div className="p-6 space-y-8">
+                  {Object.entries(
+                    allApartments.reduce((acc, apt) => {
+                      const block = apt.block || 'A';
+                      if (!acc[block]) acc[block] = [];
+                      acc[block].push(apt);
+                      return acc;
+                    }, {} as Record<string, any[]>)
+                  ).sort().map(([blockName, apts]) => (
+                    <div key={blockName} className="space-y-4">
+                      <div className="flex items-center gap-3">
+                        <div className="h-px flex-1 bg-slate-200 dark:bg-gray-800"></div>
+                        <h3 className="text-sm font-black uppercase tracking-[0.3em] text-[#7a1b3c]">Bloco {blockName}</h3>
+                        <div className="h-px flex-1 bg-slate-200 dark:bg-gray-800"></div>
                       </div>
-                    </button>
+                      <div className="grid grid-cols-4 sm:grid-cols-5 gap-3">
+                        {(apts as any[]).map(apt => {
+                          const aptReads = allMonthReadings.filter(r => r.apartment_id === apt.id);
+                          const hasWater = aptReads.some(r => r.type === 'water');
+                          const hasGas = aptReads.some(r => r.type === 'gas');
+                          const isCurrent = apt.id === apartment?.id;
+                          
+                          return (
+                            <button
+                              key={apt.id}
+                              onClick={() => {
+                                setShowAptList(false);
+                                navigate(`/readings/${apt.id}?date=${referenceDate.toISOString()}`);
+                              }}
+                              className={`aspect-square rounded-[20px] flex flex-col items-center justify-center relative transition-transform active:scale-95 ${
+                                isCurrent 
+                                  ? 'bg-[#7a1b3c] text-white shadow-lg shadow-[#7a1b3c]/30' 
+                                  : 'bg-white dark:bg-surface-dark text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-gray-800 shadow-sm'
+                              }`}
+                            >
+                              <span className="text-xl font-black tracking-tighter">{apt.number || '00'}</span>
+                              
+                              <div className="absolute top-2 right-2 flex gap-1">
+                                <div className={`size-2 rounded-full ${hasWater ? 'bg-blue-500' : 'bg-slate-200 dark:bg-slate-700'}`}></div>
+                                <div className={`size-2 rounded-full ${hasGas ? 'bg-orange-500' : 'bg-slate-200 dark:bg-slate-700'}`}></div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -327,8 +353,11 @@ const ReadingForm: React.FC = () => {
                     Editar
                   </button>
                 </div>
-                <div className="rounded-[24px] bg-blue-50 dark:bg-blue-900/10 p-4 text-sm font-semibold text-blue-700 dark:text-blue-200">
-                  Agora você pode lançar a medição de gás logo abaixo.
+                <div className="rounded-[24px] bg-blue-50 dark:bg-blue-900/10 p-4 flex flex-col gap-3">
+                  <p className="text-sm font-semibold text-blue-700 dark:text-blue-200 text-center">Medição de Água Salva!</p>
+                  <button onClick={() => setShowAptList(true)} className="w-full h-12 bg-white dark:bg-slate-800 rounded-xl text-xs font-black text-blue-600 uppercase tracking-[2px] shadow-sm">
+                    Selecionar Próxima Unidade
+                  </button>
                 </div>
               </div>
             ) : (
@@ -392,8 +421,11 @@ const ReadingForm: React.FC = () => {
                     Editar
                   </button>
                 </div>
-                <div className="rounded-[24px] bg-green-50 dark:bg-green-900/10 p-4 text-sm font-semibold text-green-700 dark:text-green-200">
-                  Leituras desta unidade concluídas! Você pode selecionar a próxima unidade.
+                <div className="rounded-[24px] bg-green-50 dark:bg-green-900/10 p-4 flex flex-col gap-3">
+                  <p className="text-sm font-semibold text-green-700 dark:text-green-200 text-center">Leituras concluídas!</p>
+                  <button onClick={() => setShowAptList(true)} className="w-full h-12 bg-white dark:bg-slate-800 rounded-xl text-xs font-black text-green-600 uppercase tracking-[2px] shadow-sm">
+                    Selecionar Próxima Unidade
+                  </button>
                 </div>
               </div>
             ) : (
