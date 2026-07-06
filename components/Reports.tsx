@@ -28,7 +28,24 @@ const Reports: React.FC = () => {
       try {
         const aptsSnap = await getDocs(collection(db, 'apartments'));
         const aptsData = aptsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setApartments(aptsData);
+
+        // Buscar registros de moradores para garantir que temos o nome mais atualizado
+        const regsSnap = await getDocs(collection(db, 'resident_registrations'));
+        const regsData = regsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
+
+        const mappedApts = aptsData.map((apt: any) => {
+          const aptRegs = regsData.filter((r: any) => r.apartment_id === apt.id && r.status === 'APROVADO');
+          if (aptRegs.length > 0) {
+            aptRegs.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+            return {
+              ...apt,
+              resident_name: aptRegs[0].full_name || apt.resident_name || apt.residentName
+            };
+          }
+          return apt;
+        });
+
+        setApartments(mappedApts);
 
         const startOfMonth = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), 1, 0, 0, 0);
         const endOfMonth = new Date(referenceDate.getFullYear(), referenceDate.getMonth() + 1, 0, 23, 59, 59);

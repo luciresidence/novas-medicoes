@@ -69,7 +69,7 @@ export const reportService = {
 
                 return [
                     ap ? (isNaN(parseInt(ap.number)) ? ap.number : `${ap.number} ${ap.block}`) : '-',
-                    ap?.residentName || '-',
+                    ap?.resident_name || ap?.residentName || '-',
                     prev.toFixed(2),
                     curr.toFixed(2),
                     consumption.toFixed(2)
@@ -124,7 +124,7 @@ export const reportService = {
 
                 return [
                     ap ? (isNaN(parseInt(ap.number)) ? ap.number : `${ap.number} ${ap.block}`) : '-',
-                    ap?.residentName || '-',
+                    ap?.resident_name || ap?.residentName || '-',
                     prev.toFixed(3),
                     curr.toFixed(3),
                     consumption.toFixed(3)
@@ -178,7 +178,7 @@ export const reportService = {
         doc.setFont("helvetica", "normal");
         doc.setTextColor(100);
         doc.text(`Relatório Individual - Apto ${apartment.number} ${apartment.block}`, 14, 32);
-        doc.text(`Morador: ${apartment.residentName}`, 14, 38);
+        doc.text(`Morador: ${apartment.resident_name || apartment.residentName || '-'}`, 14, 38);
 
         const tableData = readings.map(r => {
             const prev = Number(r.previous_value) || 0;
